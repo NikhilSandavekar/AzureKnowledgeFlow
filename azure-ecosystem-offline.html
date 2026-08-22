@@ -1,0 +1,3529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#060a14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Azure + Databricks — Offline Living Map</title>
+<style>
+  :root {
+    --bg-0: #060a14;
+    --bg-1: #0c1224;
+    --panel: #0f1830;
+    --line: #1c2842;
+    --ink-0: #eef2fb;
+    --ink-1: #93a1c4;
+    --ink-2: #5c6a8e;
+
+    --c-storage: #37c6b0;
+    --c-compute: #f0a848;
+    --c-orchestration: #a487f0;
+    --c-security: #f0607e;
+    --c-serving: #59a8f5;
+    --c-governance: #e8d766;
+
+    --mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%; min-height: 100dvh;
+    background: radial-gradient(ellipse at 30% 20%, var(--bg-1), var(--bg-0) 65%);
+    color: var(--ink-0);
+    font-family: var(--sans);
+    overflow: hidden;
+  }
+
+  #stage { position: relative; width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; }
+
+  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+
+  header {
+    position: absolute; top: 0; left: 0; right: 340px;
+    padding: 24px 28px 0 28px;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--ink-2); margin: 0 0 5px 0;
+  }
+  h1 {
+    font-weight: 700; font-size: clamp(19px, 2.6vw, 27px);
+    letter-spacing: -0.02em; margin: 0; color: var(--ink-0);
+  }
+  h1 span { color: var(--ink-2); font-weight: 500; }
+
+  /* ---- question bar ---- */
+  #askbar {
+    position: absolute; top: 90px; left: 28px;
+    width: min(560px, 62vw);
+    z-index: 6;
+    pointer-events: all;
+  }
+  #ask-form {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(15,24,48,0.85);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 6px 6px 6px 16px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  }
+  #ask-form:focus-within { border-color: #3d5486; }
+  #ask-input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--ink-0); font-family: var(--sans); font-size: 13.5px;
+    padding: 8px 0;
+  }
+  #ask-input::placeholder { color: var(--ink-2); }
+  #ask-btn {
+    background: #2a3a63; color: var(--ink-0); border: none;
+    border-radius: 8px; padding: 9px 14px; font-size: 12.5px; font-weight: 600;
+    cursor: pointer; font-family: var(--sans); white-space: nowrap;
+  }
+  #ask-btn:hover { background: #34468a; }
+  #ask-btn:disabled { opacity: 0.5; cursor: default; }
+
+  #local-status {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin-top: 7px; padding: 0 3px;
+    font-family: var(--mono); font-size: 9.5px; color: var(--ink-2);
+  }
+  #local-status .offline { color: #6fd6bd; }
+
+  #chips {
+    display: flex; flex-wrap: nowrap; gap: 6px; margin-top: 8px;
+    overflow-x: auto; padding: 1px 1px 6px; scrollbar-width: thin;
+    scrollbar-color: #283759 transparent;
+  }
+  .chip {
+    font-family: var(--mono); font-size: 10.5px; color: var(--ink-1);
+    border: 1px solid var(--line); border-radius: 20px; padding: 5px 11px;
+    cursor: pointer; background: rgba(15,24,48,0.6); flex: 0 0 auto;
+  }
+  .chip:hover { color: var(--ink-0); border-color: #3d5486; }
+
+  #answer-box {
+    position: fixed; top: 0; right: 0; width: 390px; max-width: 92vw;
+    height: 100%; height: 100dvh; margin: 0;
+    background: linear-gradient(180deg, rgba(15,24,48,.98), rgba(8,13,27,.98));
+    border: 0; border-left: 1px solid #263453; border-radius: 0;
+    padding: 62px 22px 26px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #c7d0e8;
+    overflow-y: auto;
+    display: block;
+    backdrop-filter: blur(10px);
+    box-shadow: -18px 0 60px rgba(0,0,0,.4);
+    transform: translateX(104%);
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform .34s cubic-bezier(.22,.9,.32,1), visibility .34s;
+    z-index: 14;
+  }
+  #answer-box.show { transform: translateX(0); visibility: visible; pointer-events: auto; }
+  #answer-box ul { margin: 6px 0; padding-left: 18px; }
+  #answer-box li { margin: 5px 0; }
+  #answer-box strong { color: var(--ink-0); }
+  #answer-box .step {
+    display: flex; gap: 10px; align-items: flex-start; margin: 9px 0;
+  }
+  #answer-box .step .n {
+    font-family: var(--mono); font-size: 11px; color: #0d1428;
+    background: var(--ink-1); border-radius: 50%; width: 20px; height: 20px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    margin-top: 1px;
+  }
+  #answer-box .step .txt strong { display: block; font-size: 13.5px; margin-bottom: 2px; }
+  #answer-box .step .txt span { color: var(--ink-1); font-size: 12px; }
+  #answer-box .clear-link {
+    font-family: var(--mono); font-size: 10.5px; color: var(--ink-2);
+    cursor: pointer; position: absolute; top: 22px; right: 22px; margin: 0;
+    border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px;
+  }
+  #answer-box .clear-link:hover { color: var(--ink-0); }
+  #answer-box .loading { color: var(--ink-2); font-family: var(--mono); font-size: 12px; }
+  #answer-box .answer-title { margin: 0 34px 4px 0; color: var(--ink-0); font-size: 14px; }
+  #answer-box .answer-summary { margin: 0 0 9px; color: #b7c3df; }
+  #answer-box .answer-source {
+    border-top: 1px solid var(--line); margin-top: 10px; padding-top: 8px;
+    color: var(--ink-2); font-family: var(--mono); font-size: 9.5px;
+  }
+  #answer-box .answer-connections { border-top: 1px solid var(--line); margin-top: 11px; padding-top: 10px; }
+  #answer-box .connections-title { margin: 0 0 7px; color: var(--ink-2); font: 600 9.5px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+  #answer-box .connection-row { display: grid; grid-template-columns: minmax(90px,1fr) auto minmax(90px,1fr); align-items: center; gap: 7px; margin: 6px 0; }
+  #answer-box .connection-row button { border: 1px solid #2a3a5e; border-radius: 7px; background: #111b34; color: #dce5f8; padding: 6px 7px; cursor: pointer; font-size: 10.5px; text-align: left; }
+  #answer-box .connection-row button:hover { border-color: #5f79ad; }
+  #answer-box .connection-label { color: #f0a848; font: 9px var(--mono); text-align: center; max-width: 125px; }
+
+  #legend {
+    position: absolute; bottom: 22px; left: 28px; z-index: 5;
+    display: flex; flex-wrap: wrap; gap: 6px 14px; max-width: 380px;
+    font-family: var(--mono); font-size: 10.5px; color: var(--ink-1);
+    pointer-events: none;
+  }
+  #legend .item { display: flex; align-items: center; gap: 6px; }
+  #legend .dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+  #panel {
+    position: absolute; top: 0; right: 0; height: 100%; width: 360px; max-width: 90vw;
+    background: linear-gradient(180deg, var(--panel), var(--bg-1));
+    border-left: 1px solid var(--line);
+    transform: translateX(100%);
+    transition: transform 0.38s cubic-bezier(.22,.9,.32,1);
+    z-index: 10; padding: 26px 24px; overflow-y: auto;
+  }
+  #panel.open { transform: translateX(0); }
+  #panel .close {
+    position: absolute; top: 18px; right: 18px; width: 28px; height: 28px;
+    border-radius: 50%; border: 1px solid var(--line); background: transparent;
+    color: var(--ink-1); font-family: var(--mono); font-size: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #panel .close:hover { color: var(--ink-0); border-color: var(--ink-2); }
+  #panel .cat {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 3px; display: inline-block; margin-bottom: 12px;
+  }
+  #panel h2 { font-size: 21px; margin: 0 0 3px 0; letter-spacing: -0.01em; }
+  #panel .role { font-size: 12.5px; color: var(--ink-1); margin: 0 0 18px 0; line-height: 1.45; }
+  .blk { border-top: 1px solid var(--line); padding-top: 13px; margin-top: 13px; }
+  .blk-label {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase;
+    color: var(--ink-2); margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;
+  }
+  .blk p.val { font-size: 12.5px; color: #c7d0e8; margin: 0; line-height: 1.5; }
+  .blk ul { margin: 0; padding: 0; list-style: none; }
+  .blk ul li {
+    font-size: 12.5px; color: #c7d0e8; padding: 5px 0 5px 14px; position: relative; line-height: 1.45;
+  }
+  .blk ul li::before { content: '·'; position: absolute; left: 2px; color: var(--ink-2); font-weight: 900; }
+  #panel .links li {
+    font-size: 12.5px; color: var(--ink-0); padding: 6px 0; border-bottom: 1px dashed var(--line);
+    display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none;
+  }
+  #panel .links li:before { content: none; }
+  #panel .links li:hover { color: var(--c-serving); }
+  #panel .links li .arrow { font-family: var(--mono); color: var(--ink-2); font-size: 11px; }
+  #panel .links li .lbl { font-size: 10.5px; color: var(--ink-2); margin-left: auto; font-family: var(--mono); }
+
+  #hint {
+    position: absolute; bottom: 22px; right: 32px; font-family: var(--mono);
+    font-size: 10px; color: var(--ink-2); z-index: 5; text-align: right; line-height: 1.5;
+  }
+  #motion-toggle {
+    position: absolute; right: 28px; bottom: 52px; z-index: 7;
+    border: 1px solid var(--line); border-radius: 999px; background: rgba(15,24,48,.84);
+    color: var(--ink-1); padding: 6px 10px; cursor: pointer; font: 10px var(--mono);
+    backdrop-filter: blur(10px);
+  }
+  #motion-toggle:hover { color: var(--ink-0); border-color: #3d5486; }
+  #motion-toggle[aria-pressed="true"] { color: #6fd6bd; border-color: #315a5b; }
+
+  #trace-toolbar {
+    position: absolute; left: 50%; bottom: 24px; z-index: 11;
+    display: none; align-items: center; gap: 7px; transform: translateX(-50%);
+    padding: 5px; border: 1px solid #2b3a5d; border-radius: 999px;
+    background: rgba(10,17,34,.92); box-shadow: 0 12px 34px rgba(0,0,0,.42);
+    backdrop-filter: blur(12px);
+  }
+  #stage.trace-open #trace-toolbar { display: flex; }
+  #trace-toolbar button {
+    border: 0; border-radius: 999px; padding: 7px 12px; cursor: pointer;
+    background: transparent; color: var(--ink-1); font: 10px var(--mono);
+  }
+  #trace-toolbar button:first-child { background: #283a64; color: var(--ink-0); }
+  #trace-toolbar button:hover { color: var(--ink-0); }
+
+  @media (max-width: 900px) {
+    header { right: 0; }
+    #askbar { width: calc(100% - 56px); }
+    #legend { display: none; }
+  }
+  @media (max-width: 700px) {
+    header { padding: max(12px, env(safe-area-inset-top)) 14px 0; }
+    .eyebrow { font-size: 8.5px; margin-bottom: 3px; }
+    h1 { font-size: 19px; max-width: calc(100vw - 28px); }
+    #askbar { top: calc(max(12px, env(safe-area-inset-top)) + 54px); left: 12px; width: calc(100% - 24px); }
+    #ask-form { padding: 5px 5px 5px 12px; gap: 5px; border-radius: 11px; }
+    #ask-input { min-width: 0; font-size: 16px; padding: 7px 0; }
+    #ask-btn { padding: 9px 11px; }
+    #local-status { margin-top: 5px; }
+    #local-status span:last-child { display: none; }
+    #chips { margin-top: 5px; gap: 5px; }
+    .chip { font-size: 9.5px; padding: 5px 9px; }
+    #hint { display: none; }
+    #motion-toggle { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); font-size: 9px; }
+    #answer-box, #arch-view { width: min(94vw, 430px); max-width: 94vw; padding: 58px 17px 24px; }
+    #answer-box .connection-row { grid-template-columns: minmax(72px,1fr) auto minmax(72px,1fr); gap: 5px; }
+    #answer-box .connection-row button { padding: 7px 6px; font-size: 10px; }
+    #answer-box .connection-label { font-size: 8px; max-width: 88px; }
+    #trace-toolbar { bottom: calc(12px + env(safe-area-inset-bottom)); }
+    .component-card { width: 100%; max-height: 92dvh; padding: 20px 17px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ---- right-side trace / component detail layer ---- */
+#arch-view{position:absolute;top:0;right:0;bottom:0;width:390px;max-width:92vw;height:100%;z-index:12;background:linear-gradient(180deg,rgba(15,24,48,.98),rgba(8,13,27,.98));border-left:1px solid #263453;backdrop-filter:blur(16px);box-shadow:-18px 0 60px rgba(0,0,0,.4);padding:26px 22px;display:none;overflow:auto}
+#arch-view.show{display:block}
+.arch-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}.arch-kicker,.component-kicker{font:600 9px var(--mono);letter-spacing:.16em;color:var(--ink-2);text-transform:uppercase}.arch-head h3{margin:3px 0 0;font-size:16px}.arch-head button,#component-close{border:1px solid var(--line);background:transparent;color:var(--ink-1);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:18px}.arch-head button:hover,#component-close:hover{color:var(--ink-0);border-color:#4a5d8d}
+#arch-summary{color:#b7c3df;font-size:12px;line-height:1.55;margin:12px 0 15px}.flow-track{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:4px 1px 12px}.flow-card{min-width:0;border:1px solid #293858;background:#101a32;border-radius:11px;padding:11px;cursor:pointer}.flow-card:hover{border-color:#5f79ad;transform:translateX(-2px)}.flow-card .num{font:700 9px var(--mono);color:#f0a848}.flow-card strong{display:block;font-size:12px;margin:4px 0}.flow-card span{font-size:10.5px;color:var(--ink-1);line-height:1.45}.flow-arrow{align-self:center;color:#6e7da3;font:700 14px var(--mono);transform:rotate(90deg);height:16px}
+.layer-wrap{border-top:1px solid var(--line);padding-top:12px;margin-top:4px}.layer-title{font:600 9px var(--mono);letter-spacing:.14em;color:var(--ink-2);text-transform:uppercase;margin-bottom:8px}.layers{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.layer{padding:11px;border-radius:10px;border:1px solid #263453;background:#0d162b}.layer b{display:block;font-size:12px;margin-bottom:5px}.layer p{margin:0;font-size:10.5px;color:var(--ink-1);line-height:1.4}.layer.bronze{border-top:2px solid #b97843}.layer.silver{border-top:2px solid #aeb8c7}.layer.gold{border-top:2px solid #e6cf66}
+.component-item{cursor:pointer!important;border:1px solid transparent;border-radius:7px;padding:7px 8px!important;margin:2px 0}.component-item:hover{background:#15213d;border-color:#2b3e65}.component-item:before{content:'›'!important;left:7px!important;color:#6e82ad!important}.component-item .hint{float:right;color:#56678e;font:9px var(--mono)}
+#component-modal{position:fixed;inset:0;background:rgba(2,5,12,.65);z-index:30;display:none;align-items:center;justify-content:center;padding:20px}.component-card{width:min(700px,94vw);max-height:86vh;overflow:auto;background:linear-gradient(180deg,#121d38,#0c1428);border:1px solid #304263;border-radius:16px;padding:24px;box-shadow:0 30px 100px rgba(0,0,0,.6);position:relative}.component-card #component-close{position:absolute;right:16px;top:16px}.component-card h3{font-size:22px;margin:6px 40px 8px 0}.component-card>p{color:#bdc8e1;font-size:13px;line-height:1.55;max-width:620px}.component-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}.component-grid>div{border:1px solid var(--line);border-radius:10px;padding:12px}.component-grid span{font:600 9px var(--mono);letter-spacing:.12em;color:var(--ink-2)}.component-grid p{font-size:11.5px;line-height:1.5;color:#c5cfe5;margin:7px 0 0}
+@media(max-width:900px){#arch-view{top:0;right:0;bottom:0;width:min(94vw,430px);max-width:94vw;height:100%;height:100dvh;padding:58px 18px 24px}#panel{width:min(94vw,430px);max-width:94vw;padding-top:58px}.component-grid{grid-template-columns:1fr}.layers{grid-template-columns:1fr}.flow-card{min-width:0}}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <canvas id="cv"></canvas>
+
+  <header>
+    <p class="eyebrow">Microsoft Azure + Azure Databricks</p>
+    <h1>How Azure and <span>Databricks</span> connect</h1>
+  </header>
+
+  <div id="askbar">
+    <form id="ask-form">
+      <input id="ask-input" type="text" aria-label="Ask an Azure or Databricks question" placeholder="Ask Azure or Databricks questions — answers stay on this device" autocomplete="off">
+      <button id="ask-btn" type="submit">Trace it</button>
+    </form>
+    <div id="local-status"><span class="offline">● OFFLINE KNOWLEDGE</span><span>Azure map + Packt Databricks chapters 2–12</span></div>
+    <div id="chips"></div>
+    <div id="answer-box"></div>
+  </div>
+
+  <div id="legend"></div>
+  <button id="motion-toggle" type="button" aria-pressed="false" title="Pause or resume the floating map">◌ gentle motion</button>
+  <div id="hint">trace arranges the route left → right · the background stays fixed · click a node for deep detail</div>
+  <div id="trace-toolbar" aria-label="Trace controls">
+    <button id="trace-details" type="button">Trace details</button>
+    <button id="trace-clear" type="button">Clear trace</button>
+  </div>
+
+  <div id="panel">
+    <button class="close" type="button" aria-label="Close service details" onclick="closePanel()">✕</button>
+    <span class="cat" id="p-cat"></span>
+    <h2 id="p-title"></h2>
+    <p class="role" id="p-role"></p>
+
+    <div class="blk"><p class="blk-label">Source or sink</p><p class="val" id="p-srcsink"></p></div>
+    <div class="blk"><p class="blk-label">Availability &amp; resilience</p><p class="val" id="p-avail"></p></div>
+    <div class="blk"><p class="blk-label">Key components / activities</p><ul id="p-components"></ul></div>
+    <div class="blk"><p class="blk-label">Common pattern</p><ul id="p-patterns"></ul></div>
+    <div class="blk"><p class="blk-label">Connected to</p><ul class="links" id="p-links"></ul></div>
+  </div>
+
+  <div id="arch-view" role="dialog" aria-label="Architecture trace" aria-live="polite">
+    <div class="arch-head"><div><span class="arch-kicker">ARCHITECTURE VIEW</span><h3 id="arch-title">Ask a question to build a data flow</h3></div><button id="arch-close" title="Close architecture view">×</button></div>
+    <div id="arch-summary"></div>
+    <div id="arch-flow"></div>
+    <div id="arch-layers"></div>
+  </div>
+
+  <div id="component-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="component-title">
+    <div class="component-card">
+      <button id="component-close" type="button" aria-label="Close component detail">×</button>
+      <div class="component-kicker" id="component-service"></div>
+      <h3 id="component-title"></h3>
+      <p id="component-body"></p>
+      <div class="component-grid">
+        <div><span>WHAT IT DOES</span><p id="component-does"></p></div>
+        <div><span>WHEN TO USE IT</span><p id="component-use"></p></div>
+        <div><span>DESIGN / RESILIENCE</span><p id="component-design"></p></div>
+        <div><span>COMMON GOTCHA</span><p id="component-gotcha"></p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------------------------------------------------------
+   DATA — Azure data platform ecosystem
+--------------------------------------------------------------- */
+const CATEGORIES = {
+  storage: { label: 'Storage', color: '#37c6b0' },
+  compute: { label: 'Compute', color: '#f0a848' },
+  orchestration: { label: 'Orchestration', color: '#a487f0' },
+  security: { label: 'Security', color: '#f0607e' },
+  serving: { label: 'Serving', color: '#59a8f5' },
+  governance: { label: 'Governance', color: '#e8d766' },
+  network: { label: 'Network', color: '#65b7ff' },
+  database: { label: 'Database', color: '#66d9a8' },
+  streaming: { label: 'Streaming', color: '#ff8b5d' },
+  iot: { label: 'Iot', color: '#b18cff' },
+  messaging: { label: 'Messaging', color: '#4fd1c5' },
+  analytics: { label: 'Analytics', color: '#f2c14e' },
+  bi: { label: 'Bi', color: '#5fa8ff' },
+  observability: { label: 'Observability', color: '#a8b3cf' },
+  devops: { label: 'Devops', color: '#8bd17c' },
+  ml: { label: 'Ml', color: '#ffcf70' },
+  ai: { label: 'Ai', color: '#e879f9' },
+  integration: { label: 'Integration', color: '#9ca8ff' },
+  backup: { label: 'Backup', color: '#d1a0ff' },
+  tools: { label: 'Tools', color: '#aab4c5' },
+  cache: { label: 'Cache', color: '#70d6ff' }
+};
+
+const NODES = [
+  {
+    "id": "onprem",
+    "name": "On-Premises / Private Network",
+    "cat": "network",
+    "aliases": [
+      "onprem",
+      "on-premises / private network"
+    ],
+    "role": "Private source boundary — files, databases, applications",
+    "srcSink": "Source",
+    "avail": "Connect via ExpressRoute or VPN; place Self-hosted Integration Runtime inside the network; avoid exposing databases publicly",
+    "components": [
+      "ExpressRoute / site-to-site VPN",
+      "Firewalls + routes + DNS",
+      "Self-hosted Integration Runtime",
+      "Private DNS / name resolution"
+    ],
+    "patterns": [
+      "Private-to-cloud ingestion",
+      "Hub-and-spoke network boundary"
+    ]
+  },
+  {
+    "id": "vnet",
+    "name": "Azure Virtual Network",
+    "cat": "network",
+    "aliases": [
+      "vnet",
+      "azure virtual network"
+    ],
+    "role": "Private IP boundary for workloads and private endpoints",
+    "srcSink": "Neither",
+    "avail": "Regional virtual network with subnets, routing, NSGs and private DNS; resilience comes from zonal workloads and redundant connectivity",
+    "components": [
+      "Subnets",
+      "NSGs / route tables",
+      "Private DNS zones",
+      "VNet peering / Virtual WAN"
+    ],
+    "patterns": [
+      "Hub-and-spoke",
+      "Landing zone network"
+    ]
+  },
+  {
+    "id": "expressroute",
+    "name": "ExpressRoute",
+    "cat": "network",
+    "aliases": [
+      "expressroute",
+      "expressroute"
+    ],
+    "role": "Private dedicated connectivity from on-premises to Azure",
+    "srcSink": "Neither",
+    "avail": "Redundant circuits and peering are used for resilient private connectivity; avoids traversing the public internet",
+    "components": [
+      "Private peering",
+      "ExpressRoute Gateway",
+      "Circuit providers",
+      "FastPath where applicable"
+    ],
+    "patterns": [
+      "Primary private ingress path"
+    ]
+  },
+  {
+    "id": "vpngw",
+    "name": "VPN Gateway",
+    "cat": "network",
+    "aliases": [
+      "vpngw",
+      "vpn gateway"
+    ],
+    "role": "Encrypted site-to-site connectivity over the internet",
+    "srcSink": "Neither",
+    "avail": "Zone-redundant gateway SKUs are available in supported regions; dual tunnels are commonly used",
+    "components": [
+      "Site-to-site IPsec/IKE",
+      "Point-to-site",
+      "BGP",
+      "Active-active gateway"
+    ],
+    "patterns": [
+      "Fallback / smaller-site private ingress"
+    ]
+  },
+  {
+    "id": "privatelink",
+    "name": "Private Link / Private Endpoint",
+    "cat": "security",
+    "aliases": [
+      "privatelink",
+      "private link / private endpoint"
+    ],
+    "role": "Private access boundary to Azure PaaS services",
+    "srcSink": "Neither",
+    "avail": "Private endpoint is a NIC in your VNet; service remains reachable through private IP; use private DNS for name resolution",
+    "components": [
+      "Private endpoints",
+      "Private DNS zones",
+      "Private Link Service",
+      "Service endpoints as alternative"
+    ],
+    "patterns": [
+      "PaaS private access",
+      "Hub private endpoints"
+    ]
+  },
+  {
+    "id": "entra",
+    "name": "Microsoft Entra ID",
+    "cat": "security",
+    "aliases": [
+      "entra",
+      "microsoft entra id"
+    ],
+    "role": "Identity and access control plane",
+    "srcSink": "Neither",
+    "avail": "Microsoft-managed global identity service; use managed identities to remove secrets from workloads",
+    "components": [
+      "Managed identities",
+      "Service principals",
+      "RBAC",
+      "Conditional Access"
+    ],
+    "patterns": [
+      "Identity plane"
+    ]
+  },
+  {
+    "id": "keyvault",
+    "name": "Azure Key Vault",
+    "cat": "security",
+    "aliases": [
+      "keyvault",
+      "azure key vault"
+    ],
+    "role": "Secrets, keys and certificates",
+    "srcSink": "Neither",
+    "avail": "Soft delete and purge protection protect recoverability; private endpoint can keep access private",
+    "components": [
+      "Secrets",
+      "Keys",
+      "Certificates",
+      "Managed HSM"
+    ],
+    "patterns": [
+      "Secretless workload authentication"
+    ]
+  },
+  {
+    "id": "adls",
+    "name": "Azure Data Lake Storage Gen2",
+    "cat": "storage",
+    "aliases": [
+      "adls",
+      "azure data lake storage gen2"
+    ],
+    "role": "Hierarchical analytical data lake",
+    "srcSink": "Both",
+    "avail": "Choose redundancy based on availability/DR requirements; hierarchical namespace supports analytics semantics",
+    "components": [
+      "Containers / folders",
+      "ACLs + RBAC",
+      "Lifecycle management",
+      "Soft delete / versioning",
+      "Change feed"
+    ],
+    "patterns": [
+      "Medallion bronze → silver → gold",
+      "Central lakehouse storage"
+    ]
+  },
+  {
+    "id": "blob",
+    "name": "Azure Blob Storage",
+    "cat": "storage",
+    "aliases": [
+      "blob",
+      "azure blob storage"
+    ],
+    "role": "Object storage for files, documents and raw objects",
+    "srcSink": "Both",
+    "avail": "Supports LRS/ZRS/GRS/GZRS choices depending on durability and DR needs",
+    "components": [
+      "Containers",
+      "Access tiers",
+      "Lifecycle policies",
+      "Object replication"
+    ],
+    "patterns": [
+      "Landing zone",
+      "Document/object store"
+    ]
+  },
+  {
+    "id": "sql",
+    "name": "Azure SQL Database",
+    "cat": "database",
+    "aliases": [
+      "sql",
+      "azure sql database"
+    ],
+    "role": "Managed relational OLTP database",
+    "srcSink": "Both",
+    "avail": "Zone redundancy and geo-replication options depend on tier; elastic pools consolidate workloads",
+    "components": [
+      "Elastic pools",
+      "CDC",
+      "Temporal tables",
+      "Failover groups"
+    ],
+    "patterns": [
+      "OLTP source → lake",
+      "Operational serving"
+    ]
+  },
+  {
+    "id": "sqldbmi",
+    "name": "Azure SQL Managed Instance",
+    "cat": "database",
+    "aliases": [
+      "sqldbmi",
+      "azure sql managed instance"
+    ],
+    "role": "Near-full SQL Server managed platform",
+    "srcSink": "Both",
+    "avail": "Built-in high availability with zone redundancy options and automated backups; supports cross-region DR patterns",
+    "components": [
+      "SQL Agent",
+      "Cross-database queries",
+      "Native backup/restore",
+      "Failover groups"
+    ],
+    "patterns": [
+      "Lift-and-modernize SQL estates"
+    ]
+  },
+  {
+    "id": "postgres",
+    "name": "Azure Database for PostgreSQL",
+    "cat": "database",
+    "aliases": [
+      "postgres",
+      "azure database for postgresql"
+    ],
+    "role": "Managed PostgreSQL relational store",
+    "srcSink": "Both",
+    "avail": "Zone-redundant HA is available in supported configurations; read replicas support scale-out",
+    "components": [
+      "Flexible Server",
+      "Read replicas",
+      "Point-in-time restore",
+      "Extensions"
+    ],
+    "patterns": [
+      "OLTP source → analytics"
+    ]
+  },
+  {
+    "id": "cosmos",
+    "name": "Azure Cosmos DB",
+    "cat": "database",
+    "aliases": [
+      "cosmos",
+      "azure cosmos db"
+    ],
+    "role": "Globally distributed operational database",
+    "srcSink": "Both",
+    "avail": "Multi-region replication and multi-region writes support low-latency global applications",
+    "components": [
+      "APIs",
+      "Change feed",
+      "Autoscale RU/s",
+      "Global distribution"
+    ],
+    "patterns": [
+      "Operational change feed → analytics"
+    ]
+  },
+  {
+    "id": "mysql",
+    "name": "Azure Database for MySQL",
+    "cat": "database",
+    "aliases": [
+      "mysql",
+      "azure database for mysql"
+    ],
+    "role": "Managed MySQL relational store",
+    "srcSink": "Both",
+    "avail": "High availability and backups are managed by the service; replicas support read scaling",
+    "components": [
+      "Flexible Server",
+      "Read replicas",
+      "Backups",
+      "Private access"
+    ],
+    "patterns": [
+      "OLTP source → lake"
+    ]
+  },
+  {
+    "id": "eventhub",
+    "name": "Azure Event Hubs",
+    "cat": "streaming",
+    "aliases": [
+      "eventhub",
+      "azure event hubs"
+    ],
+    "role": "High-throughput event ingestion",
+    "srcSink": "Source",
+    "avail": "Availability zone support is available on supported tiers; partitions provide horizontal parallelism",
+    "components": [
+      "Partitions",
+      "Consumer groups",
+      "Capture",
+      "Schema Registry"
+    ],
+    "patterns": [
+      "Event Hubs → Stream Analytics → Power BI",
+      "Event Hubs → ADLS archive"
+    ]
+  },
+  {
+    "id": "iothub",
+    "name": "Azure IoT Hub",
+    "cat": "iot",
+    "aliases": [
+      "iothub",
+      "azure iot hub"
+    ],
+    "role": "Device telemetry and command channel",
+    "srcSink": "Both",
+    "avail": "Zone redundancy is available in supported configurations; device identity and messaging are managed per hub",
+    "components": [
+      "Device twins",
+      "D2C / C2D messaging",
+      "Routing",
+      "Event Hub-compatible endpoint"
+    ],
+    "patterns": [
+      "IoT → Event Hubs/Stream Analytics → lake"
+    ]
+  },
+  {
+    "id": "servicebus",
+    "name": "Azure Service Bus",
+    "cat": "messaging",
+    "aliases": [
+      "servicebus",
+      "azure service bus"
+    ],
+    "role": "Reliable enterprise messaging",
+    "srcSink": "Both",
+    "avail": "Premium provides zone-redundant messaging in supported regions; queues/topics decouple producers and consumers",
+    "components": [
+      "Queues",
+      "Topics/subscriptions",
+      "Sessions",
+      "Dead-letter queues"
+    ],
+    "patterns": [
+      "Transactional integration",
+      "Async microservices"
+    ]
+  },
+  {
+    "id": "eventgrid",
+    "name": "Azure Event Grid",
+    "cat": "messaging",
+    "aliases": [
+      "eventgrid",
+      "azure event grid"
+    ],
+    "role": "Event routing and notifications",
+    "srcSink": "Both",
+    "avail": "Managed regional service with retry/dead-letter capabilities; pair with redundant handlers for end-to-end resilience",
+    "components": [
+      "Topics",
+      "Subscriptions",
+      "Filters",
+      "Dead-lettering"
+    ],
+    "patterns": [
+      "Event-driven pipelines",
+      "Blob-created → processing"
+    ]
+  },
+  {
+    "id": "stream",
+    "name": "Azure Stream Analytics",
+    "cat": "streaming",
+    "aliases": [
+      "stream",
+      "azure stream analytics"
+    ],
+    "role": "Real-time SQL stream processing",
+    "srcSink": "Both",
+    "avail": "Streaming units can be scaled for throughput; jobs can fan out to multiple sinks",
+    "components": [
+      "Tumbling/hopping/sliding windows",
+      "Reference data joins",
+      "Multiple inputs/outputs",
+      "Late arrival handling"
+    ],
+    "patterns": [
+      "Event Hubs → Stream Analytics → Power BI + ADLS"
+    ]
+  },
+  {
+    "id": "adf",
+    "name": "Azure Data Factory",
+    "cat": "orchestration",
+    "aliases": [
+      "adf",
+      "azure data factory"
+    ],
+    "role": "Batch integration and pipeline orchestration",
+    "srcSink": "Neither",
+    "avail": "Regional control plane; Self-hosted IR brings execution into private networks; use multiple IR nodes for resilience",
+    "components": [
+      "Pipelines",
+      "Copy Activity",
+      "Mapping Data Flows",
+      "Lookup / ForEach / Until",
+      "Triggers",
+      "Integration Runtimes"
+    ],
+    "patterns": [
+      "Metadata-driven ingestion",
+      "Incremental watermark / CDC",
+      "Private network ingestion"
+    ]
+  },
+  {
+    "id": "synapse",
+    "name": "Azure Synapse Analytics",
+    "cat": "analytics",
+    "aliases": [
+      "synapse",
+      "azure synapse analytics"
+    ],
+    "role": "Unified SQL, Spark and pipelines analytics workspace",
+    "srcSink": "Both",
+    "avail": "Dedicated SQL pools provide provisioned compute and backups; serverless SQL is on-demand over lake data",
+    "components": [
+      "Synapse Pipelines",
+      "Data Flows",
+      "Serverless SQL pool",
+      "Dedicated SQL pool",
+      "Spark pools",
+      "Link connections"
+    ],
+    "patterns": [
+      "Serverless lake querying",
+      "Metadata-driven Synapse pipelines",
+      "Lake → curated warehouse"
+    ]
+  },
+  {
+    "id": "databricks",
+    "name": "Azure Databricks",
+    "cat": "analytics",
+    "aliases": [
+      "databricks",
+      "azure databricks"
+    ],
+    "role": "Lakehouse engineering, streaming and ML",
+    "srcSink": "Both",
+    "avail": "Compute can use multiple availability zones depending on workspace configuration; jobs should be ephemeral and autoscaled",
+    "components": [
+      "Spark",
+      "Delta Lake",
+      "Unity Catalog",
+      "Auto Loader",
+      "Structured Streaming",
+      "Lakeflow Declarative Pipelines",
+      "Lakeflow Jobs",
+      "Databricks Asset Bundles",
+      "Photon / AQE",
+      "MLflow / Feature Store",
+      "Vector Search / AI Gateway",
+      "System Tables"
+    ],
+    "patterns": [
+      "Bronze → Silver → Gold",
+      "CDC → Delta",
+      "ML feature engineering"
+    ]
+  },
+  {
+    "id": "fabric",
+    "name": "Microsoft Fabric",
+    "cat": "analytics",
+    "aliases": [
+      "fabric",
+      "microsoft fabric"
+    ],
+    "role": "End-to-end SaaS analytics platform",
+    "srcSink": "Both",
+    "avail": "Microsoft-managed SaaS capacity; resilience and regional behavior are service-managed",
+    "components": [
+      "OneLake",
+      "Data Factory",
+      "Lakehouse",
+      "Warehouse",
+      "Real-Time Intelligence",
+      "Power BI"
+    ],
+    "patterns": [
+      "OneLake medallion",
+      "Lakehouse → Power BI"
+    ]
+  },
+  {
+    "id": "powerbi",
+    "name": "Power BI",
+    "cat": "bi",
+    "aliases": [
+      "powerbi",
+      "power bi"
+    ],
+    "role": "BI and semantic visualization layer",
+    "srcSink": "Sink",
+    "avail": "Microsoft-managed SaaS; choose Import, DirectQuery or composite models based on latency and scale",
+    "components": [
+      "Semantic models",
+      "Import",
+      "DirectQuery",
+      "Composite models",
+      "Dataflows",
+      "Reports"
+    ],
+    "patterns": [
+      "Gold → semantic model → dashboard",
+      "DirectQuery for low-latency analytics"
+    ]
+  },
+  {
+    "id": "appinsights",
+    "name": "Application Insights",
+    "cat": "observability",
+    "aliases": [
+      "appinsights",
+      "application insights"
+    ],
+    "role": "Application performance telemetry",
+    "srcSink": "Sink",
+    "avail": "Telemetry is sent to an Azure Monitor-backed workspace; configure availability and retention to match operational needs",
+    "components": [
+      "Requests",
+      "Dependencies",
+      "Traces",
+      "Metrics",
+      "Distributed tracing"
+    ],
+    "patterns": [
+      "App → telemetry → Monitor"
+    ]
+  },
+  {
+    "id": "monitor",
+    "name": "Azure Monitor",
+    "cat": "observability",
+    "aliases": [
+      "monitor",
+      "azure monitor"
+    ],
+    "role": "Central metrics, logs and alerting",
+    "srcSink": "Sink",
+    "avail": "Log Analytics workspaces are regional; centralize diagnostic settings while considering data residency and failure domains",
+    "components": [
+      "Metrics",
+      "Diagnostic settings",
+      "Log Analytics",
+      "KQL",
+      "Alerts / action groups"
+    ],
+    "patterns": [
+      "Central observability"
+    ]
+  },
+  {
+    "id": "loganalytics",
+    "name": "Log Analytics",
+    "cat": "observability",
+    "aliases": [
+      "loganalytics",
+      "log analytics"
+    ],
+    "role": "KQL-based log analytics workspace",
+    "srcSink": "Sink",
+    "avail": "Regional workspace; retention and archive settings determine recovery/retention posture",
+    "components": [
+      "KQL",
+      "Tables",
+      "Retention",
+      "Workbooks"
+    ],
+    "patterns": [
+      "Platform logging"
+    ]
+  },
+  {
+    "id": "purview",
+    "name": "Microsoft Purview",
+    "cat": "governance",
+    "aliases": [
+      "purview",
+      "microsoft purview",
+      "azure data catalog",
+      "enterprise data catalog",
+      "purview data catalog"
+    ],
+    "role": "Data catalog, classification and lineage",
+    "srcSink": "Neither",
+    "avail": "Regional service with managed governance metadata; scans connect to data sources without moving business data",
+    "components": [
+      "Data Map",
+      "Catalog",
+      "Classification",
+      "Lineage",
+      "Business glossary"
+    ],
+    "patterns": [
+      "Lake governance",
+      "End-to-end lineage"
+    ]
+  },
+  {
+    "id": "defender",
+    "name": "Microsoft Defender for Cloud",
+    "cat": "security",
+    "aliases": [
+      "defender",
+      "microsoft defender for cloud"
+    ],
+    "role": "Cloud security posture and workload protection",
+    "srcSink": "Neither",
+    "avail": "Central security posture across subscriptions; protection level varies by workload plan",
+    "components": [
+      "Secure Score",
+      "Recommendations",
+      "Defender plans",
+      "Regulatory compliance"
+    ],
+    "patterns": [
+      "Security baseline"
+    ]
+  },
+  {
+    "id": "policy",
+    "name": "Azure Policy",
+    "cat": "governance",
+    "aliases": [
+      "policy",
+      "azure policy"
+    ],
+    "role": "Preventive and detective governance",
+    "srcSink": "Neither",
+    "avail": "Policy evaluation is platform-managed; use initiatives for scalable landing-zone governance",
+    "components": [
+      "Definitions",
+      "Initiatives",
+      "Assignments",
+      "Remediation"
+    ],
+    "patterns": [
+      "Landing-zone guardrails"
+    ]
+  },
+  {
+    "id": "devops",
+    "name": "Azure DevOps",
+    "cat": "devops",
+    "aliases": [
+      "devops",
+      "azure devops"
+    ],
+    "role": "Source control, CI/CD and work management",
+    "srcSink": "Neither",
+    "avail": "SaaS control plane; use protected branches, service connections and deployment environments",
+    "components": [
+      "Repos",
+      "Pipelines",
+      "Artifacts",
+      "Boards",
+      "Environments"
+    ],
+    "patterns": [
+      "Infrastructure + data CI/CD"
+    ]
+  },
+  {
+    "id": "functions",
+    "name": "Azure Functions",
+    "cat": "compute",
+    "aliases": [
+      "functions",
+      "azure functions"
+    ],
+    "role": "Event-driven serverless compute",
+    "srcSink": "Both",
+    "avail": "Consumption/Premium/Dedicated hosting options provide different scaling and networking characteristics",
+    "components": [
+      "Triggers",
+      "Bindings",
+      "Durable Functions",
+      "Managed identity"
+    ],
+    "patterns": [
+      "Event-driven transformation",
+      "Lightweight API / enrichment"
+    ]
+  },
+  {
+    "id": "logicapps",
+    "name": "Azure Logic Apps",
+    "cat": "integration",
+    "aliases": [
+      "logicapps",
+      "azure logic apps"
+    ],
+    "role": "Low-code workflow integration",
+    "srcSink": "Both",
+    "avail": "Integration service can use Standard single-tenant hosting for stronger networking control",
+    "components": [
+      "Connectors",
+      "Workflows",
+      "Managed connectors",
+      "Standard runtime"
+    ],
+    "patterns": [
+      "SaaS integration",
+      "Approval / notification workflow"
+    ]
+  },
+  {
+    "id": "appservice",
+    "name": "Azure App Service",
+    "cat": "compute",
+    "aliases": [
+      "appservice",
+      "azure app service"
+    ],
+    "role": "Managed web/API hosting",
+    "srcSink": "Both",
+    "avail": "Deployment slots and zone redundancy depend on tier; autoscale and scale-out provide resilience",
+    "components": [
+      "Web Apps",
+      "API Apps",
+      "Deployment slots",
+      "Autoscale"
+    ],
+    "patterns": [
+      "API / web frontend"
+    ]
+  },
+  {
+    "id": "aks",
+    "name": "Azure Kubernetes Service",
+    "cat": "compute",
+    "aliases": [
+      "aks",
+      "azure kubernetes service"
+    ],
+    "role": "Managed Kubernetes for containerized workloads",
+    "srcSink": "Both",
+    "avail": "Use multiple node pools and availability zones for resilient clusters; control plane is managed by Azure",
+    "components": [
+      "Node pools",
+      "Ingress",
+      "HPA",
+      "Workload identities",
+      "Private cluster"
+    ],
+    "patterns": [
+      "Microservices platform"
+    ]
+  },
+  {
+    "id": "containerapps",
+    "name": "Azure Container Apps",
+    "cat": "compute",
+    "aliases": [
+      "containerapps",
+      "azure container apps"
+    ],
+    "role": "Serverless containers and microservices",
+    "srcSink": "Both",
+    "avail": "Revision-based deployment and managed scaling; zone redundancy depends on environment configuration",
+    "components": [
+      "Revisions",
+      "KEDA scaling",
+      "Dapr",
+      "Ingress",
+      "Jobs"
+    ],
+    "patterns": [
+      "Event-driven containers"
+    ]
+  },
+  {
+    "id": "acr",
+    "name": "Azure Container Registry",
+    "cat": "devops",
+    "aliases": [
+      "acr",
+      "azure container registry"
+    ],
+    "role": "Private container image registry",
+    "srcSink": "Both",
+    "avail": "Geo-replication is available on supported tiers for regional distribution",
+    "components": [
+      "Repositories",
+      "Tasks",
+      "Geo-replication",
+      "Content trust"
+    ],
+    "patterns": [
+      "CI/CD → AKS / Container Apps"
+    ]
+  },
+  {
+    "id": "ml",
+    "name": "Azure Machine Learning",
+    "cat": "ml",
+    "aliases": [
+      "ml",
+      "azure machine learning"
+    ],
+    "role": "Managed ML lifecycle and training platform",
+    "srcSink": "Both",
+    "avail": "Workspace data and compute can be configured across networking boundaries; use managed endpoints and private connectivity where required",
+    "components": [
+      "Jobs",
+      "Compute clusters",
+      "Models",
+      "Endpoints",
+      "MLflow"
+    ],
+    "patterns": [
+      "Silver → features → model → endpoint"
+    ]
+  },
+  {
+    "id": "ai_foundry",
+    "name": "Microsoft Foundry",
+    "cat": "ai",
+    "aliases": [
+      "ai foundry",
+      "microsoft foundry"
+    ],
+    "role": "AI application and model platform",
+    "srcSink": "Both",
+    "avail": "Managed platform capabilities; networking and model availability vary by model/provider/region",
+    "components": [
+      "Models",
+      "Agents",
+      "Evaluations",
+      "Prompt flows",
+      "Safety"
+    ],
+    "patterns": [
+      "RAG over governed lake",
+      "AI app → API → enterprise data"
+    ]
+  },
+  {
+    "id": "search",
+    "name": "Azure AI Search",
+    "cat": "ai",
+    "aliases": [
+      "search",
+      "azure ai search"
+    ],
+    "role": "Enterprise search and vector retrieval",
+    "srcSink": "Both",
+    "avail": "Replica/partition architecture supports scale and availability; zone redundancy depends on tier/region",
+    "components": [
+      "Indexes",
+      "Vector search",
+      "Semantic ranker",
+      "Skillsets",
+      "Indexers"
+    ],
+    "patterns": [
+      "ADLS → Search index → RAG"
+    ]
+  },
+  {
+    "id": "apim",
+    "name": "Azure API Management",
+    "cat": "integration",
+    "aliases": [
+      "apim",
+      "azure api management"
+    ],
+    "role": "API gateway, policy and developer portal",
+    "srcSink": "Both",
+    "avail": "Multi-region deployments provide regional front doors; tier capabilities vary",
+    "components": [
+      "API gateway",
+      "Policies",
+      "Subscriptions",
+      "Products",
+      "Developer portal"
+    ],
+    "patterns": [
+      "API → Functions/AKS",
+      "Secure data APIs"
+    ]
+  },
+  {
+    "id": "frontdoor",
+    "name": "Azure Front Door",
+    "cat": "network",
+    "aliases": [
+      "frontdoor",
+      "azure front door"
+    ],
+    "role": "Global HTTP(S) edge routing",
+    "srcSink": "Both",
+    "avail": "Global anycast edge with health probes and origin failover; use WAF for protection",
+    "components": [
+      "CDN",
+      "WAF",
+      "Health probes",
+      "Rules engine"
+    ],
+    "patterns": [
+      "Internet → Front Door → App/API"
+    ]
+  },
+  {
+    "id": "loadbalancer",
+    "name": "Azure Load Balancer",
+    "cat": "network",
+    "aliases": [
+      "loadbalancer",
+      "azure load balancer"
+    ],
+    "role": "Layer-4 traffic distribution",
+    "srcSink": "Both",
+    "avail": "Zone-redundant frontends and health probes support resilient regional services",
+    "components": [
+      "Rules",
+      "Health probes",
+      "Inbound NAT",
+      "HA ports"
+    ],
+    "patterns": [
+      "Private service load balancing"
+    ]
+  },
+  {
+    "id": "applicationgateway",
+    "name": "Application Gateway",
+    "cat": "network",
+    "aliases": [
+      "applicationgateway",
+      "application gateway"
+    ],
+    "role": "Regional Layer-7 load balancer / WAF",
+    "srcSink": "Both",
+    "avail": "Zone redundancy and autoscaling are supported on modern SKUs",
+    "components": [
+      "WAF",
+      "TLS termination",
+      "Path routing",
+      "Autoscale"
+    ],
+    "patterns": [
+      "VNet → App Gateway → App Service/AKS"
+    ]
+  },
+  {
+    "id": "virtualwan",
+    "name": "Azure Virtual WAN",
+    "cat": "network",
+    "aliases": [
+      "virtualwan",
+      "azure virtual wan"
+    ],
+    "role": "Managed global networking hub",
+    "srcSink": "Neither",
+    "avail": "Hub-and-spoke managed connectivity with redundant hub infrastructure",
+    "components": [
+      "Virtual hubs",
+      "VPN",
+      "ExpressRoute",
+      "Routing"
+    ],
+    "patterns": [
+      "Multi-site enterprise network"
+    ]
+  },
+  {
+    "id": "storageexplorer",
+    "name": "Azure Storage Explorer",
+    "cat": "tools",
+    "aliases": [
+      "storageexplorer",
+      "azure storage explorer"
+    ],
+    "role": "Client tool for storage administration",
+    "srcSink": "Neither",
+    "avail": "Client application, not a production data-plane dependency",
+    "components": [
+      "Blob / ADLS browsing",
+      "ACL management",
+      "Upload/download"
+    ],
+    "patterns": [
+      "Developer operations"
+    ]
+  },
+  {
+    "id": "backup",
+    "name": "Azure Backup",
+    "cat": "backup",
+    "aliases": [
+      "backup",
+      "azure backup"
+    ],
+    "role": "Managed backup and recovery",
+    "srcSink": "Neither",
+    "avail": "Recovery vault architecture and geo-redundant storage options depend on workload",
+    "components": [
+      "Recovery Services vault",
+      "Backup policies",
+      "Restore points",
+      "Soft delete"
+    ],
+    "patterns": [
+      "Operational recovery"
+    ]
+  },
+  {
+    "id": "site_recovery",
+    "name": "Azure Site Recovery",
+    "cat": "backup",
+    "aliases": [
+      "site recovery",
+      "azure site recovery"
+    ],
+    "role": "Disaster recovery orchestration",
+    "srcSink": "Neither",
+    "avail": "Replicates supported workloads to a recovery region; recovery plans coordinate failover",
+    "components": [
+      "Replication",
+      "Recovery plans",
+      "Test failover",
+      "Failover"
+    ],
+    "patterns": [
+      "Cross-region DR"
+    ]
+  },
+  {
+    "id": "cost",
+    "name": "Azure Cost Management",
+    "cat": "governance",
+    "aliases": [
+      "cost",
+      "azure cost management"
+    ],
+    "role": "Cost visibility and optimization",
+    "srcSink": "Neither",
+    "avail": "Management-plane service; use budgets and alerts to control spend",
+    "components": [
+      "Budgets",
+      "Cost analysis",
+      "Exports",
+      "Reservations / savings plans"
+    ],
+    "patterns": [
+      "FinOps governance"
+    ]
+  },
+  {
+    "id": "managed_identity",
+    "name": "Managed Identity",
+    "cat": "security",
+    "aliases": [
+      "managed identity",
+      "managed identity"
+    ],
+    "role": "Secretless workload identity",
+    "srcSink": "Neither",
+    "avail": "Identity lifecycle is managed by Azure; system-assigned lifecycle follows the resource",
+    "components": [
+      "System-assigned",
+      "User-assigned",
+      "RBAC",
+      "Token acquisition"
+    ],
+    "patterns": [
+      "ADLS/Key Vault/SQL access without secrets"
+    ]
+  },
+  {
+    "id": "storagequeue",
+    "name": "Azure Queue Storage",
+    "cat": "messaging",
+    "aliases": [
+      "storagequeue",
+      "azure queue storage"
+    ],
+    "role": "Simple durable queue",
+    "srcSink": "Both",
+    "avail": "Storage redundancy determines durability; poison-message handling is application-managed",
+    "components": [
+      "Queues",
+      "Visibility timeout",
+      "Poison message pattern"
+    ],
+    "patterns": [
+      "Simple async work queues"
+    ]
+  },
+  {
+    "id": "redis",
+    "name": "Azure Managed Redis",
+    "cat": "cache",
+    "aliases": [
+      "redis",
+      "azure managed redis"
+    ],
+    "role": "Low-latency cache",
+    "srcSink": "Both",
+    "avail": "Use appropriate tier/replication options for availability; cache is not the system of record",
+    "components": [
+      "Caching",
+      "Pub/Sub",
+      "Streams",
+      "TTL"
+    ],
+    "patterns": [
+      "API → Redis → database"
+    ]
+  },
+  {
+    "id": "delta_lake",
+    "name": "Delta Lake",
+    "cat": "storage",
+    "aliases": ["delta lake", "delta table", "delta tables", "merge into", "time travel"],
+    "role": "Transactional lakehouse table format",
+    "srcSink": "Both",
+    "avail": "Stores transaction logs with the data; design checkpoints, retention, compaction and recovery policies for production",
+    "components": ["ACID transactions", "MERGE / upserts", "Schema enforcement / evolution", "Time travel", "OPTIMIZE / clustering"],
+    "patterns": ["Reliable Bronze → Silver → Gold tables", "Incremental CDC MERGE", "Replay and audit with table history"]
+  },
+  {
+    "id": "unity_catalog",
+    "name": "Unity Catalog",
+    "cat": "governance",
+    "aliases": ["unity catalog", "databricks data catalog", "data catalog in databricks", "databricks catalog", "external location", "storage credential", "catalog schema table"],
+    "role": "Central Databricks governance and metadata plane",
+    "srcSink": "Neither",
+    "avail": "Account-level metastore with workspace bindings; govern access through groups and least-privilege grants",
+    "components": ["Metastore", "Catalogs / schemas", "Storage credentials", "External locations / volumes", "Lineage / system tables"],
+    "patterns": ["Group-based lakehouse access", "Managed and external tables", "Governed data sharing"]
+  },
+  {
+    "id": "autoloader",
+    "name": "Databricks Auto Loader",
+    "cat": "streaming",
+    "aliases": ["auto loader", "autoloader", "cloudfiles", "rescued data column"],
+    "role": "Incremental file discovery and ingestion",
+    "srcSink": "Source",
+    "avail": "Checkpoint progress and schema state in durable storage so streams resume safely",
+    "components": ["cloudFiles source", "Checkpoints", "Schema inference / evolution", "rescuedDataColumn", "File notification mode"],
+    "patterns": ["ADLS files → Bronze Delta", "Near-real-time file ingestion", "Schema drift quarantine"]
+  },
+  {
+    "id": "structured_streaming",
+    "name": "Spark Structured Streaming",
+    "cat": "streaming",
+    "aliases": ["structured streaming", "spark streaming", "watermark", "late arriving data", "stateful streaming"],
+    "role": "Fault-tolerant streaming transformations on Spark",
+    "srcSink": "Both",
+    "avail": "Use durable checkpoints, deterministic sinks and explicit watermark/state policies for restartability",
+    "components": ["Micro-batches", "Watermarks", "Windowed aggregations", "Stateful processing", "Checkpointing"],
+    "patterns": ["Event Hubs → streaming Delta", "Late-data-safe aggregations", "Real-time alert tables"]
+  },
+  {
+    "id": "lakeflow_pipelines",
+    "name": "Lakeflow Declarative Pipelines",
+    "cat": "orchestration",
+    "aliases": ["lakeflow declarative pipelines", "lakeflow spark declarative pipelines", "delta live tables", "dlt", "expectations"],
+    "role": "Declarative, dependency-aware Databricks pipelines",
+    "srcSink": "Neither",
+    "avail": "Managed pipeline execution with event logs, dependency handling and recoverable incremental processing",
+    "components": ["Streaming tables", "Materialized views", "Expectations", "Pipeline event log", "Automatic dependencies"],
+    "patterns": ["Auto Loader Bronze → validated Silver → aggregate Gold", "Drop vs monitor quality rules", "Stream-to-static joins"]
+  },
+  {
+    "id": "lakeflow_jobs",
+    "name": "Lakeflow Jobs",
+    "cat": "orchestration",
+    "aliases": ["lakeflow jobs", "databricks jobs", "workflows", "job cluster", "task dag"],
+    "role": "Production orchestration for Databricks tasks",
+    "srcSink": "Neither",
+    "avail": "Use ephemeral job compute, retries, timeouts, notifications and repair runs for resilient operation",
+    "components": ["Task DAG", "Job clusters", "Parameters", "Retries / alerts", "Run history"],
+    "patterns": ["Fan-out / fan-in workflows", "Scheduled production jobs", "SDK-managed job definitions"]
+  },
+  {
+    "id": "databricks_bundles",
+    "name": "Databricks Asset Bundles",
+    "cat": "devops",
+    "aliases": ["databricks asset bundles", "asset bundle", "dabs", "databricks.yml"],
+    "role": "Source-controlled deployment unit for Databricks resources",
+    "srcSink": "Neither",
+    "avail": "Validate and deploy the same bundle to dev, staging and production with target-specific variables",
+    "components": ["databricks.yml", "Targets", "Variables", "Resources", "CLI validate / deploy / run"],
+    "patterns": ["Multi-environment CI/CD", "Jobs and pipelines as code", "Repeatable promotion"]
+  },
+  {
+    "id": "mlflow",
+    "name": "MLflow",
+    "cat": "ml",
+    "aliases": ["mlflow", "model registry", "experiment tracking"],
+    "role": "Experiment, model and lifecycle tracking",
+    "srcSink": "Neither",
+    "avail": "Store experiments and registered models in governed workspaces; define promotion and rollback controls",
+    "components": ["Experiments", "Runs / metrics", "Artifacts", "Model Registry", "Model serving"],
+    "patterns": ["Track → compare → register → deploy", "Governed model promotion"]
+  },
+  {
+    "id": "feature_store",
+    "name": "Databricks Feature Store",
+    "cat": "ml",
+    "aliases": ["feature store", "feature engineering client", "feature table", "feature lookup"],
+    "role": "Reusable governed ML features",
+    "srcSink": "Both",
+    "avail": "Use Unity Catalog governance and point-in-time correct lookups to keep training and inference consistent",
+    "components": ["Feature tables", "Feature Engineering Client", "Training sets", "Feature lookups", "Online serving"],
+    "patterns": ["Lakehouse → reusable features → MLflow model", "Training/serving consistency"]
+  },
+  {
+    "id": "vector_search",
+    "name": "Databricks Vector Search",
+    "cat": "ai",
+    "aliases": ["vector search", "embedding index", "rag retrieval", "mosaic ai vector search"],
+    "role": "Similarity retrieval for governed RAG applications",
+    "srcSink": "Both",
+    "avail": "Keep source-to-index sync, permissions, evaluation and freshness monitoring in the operating model",
+    "components": ["Delta Sync index", "Embeddings", "Similarity search", "Filters", "RAG retriever"],
+    "patterns": ["Delta table → vector index → grounded model", "Permission-aware enterprise retrieval"]
+  },
+  {
+    "id": "photon_aqe",
+    "name": "Photon & AQE",
+    "cat": "compute",
+    "aliases": ["photon", "adaptive query execution", "aqe", "skew join", "partition coalescing"],
+    "role": "Runtime and query-plan acceleration",
+    "srcSink": "Neither",
+    "avail": "Validate gains with representative workloads; tune joins, file layout and partitioning before adding cache",
+    "components": ["Photon engine", "Adaptive Query Execution", "Dynamic partition coalescing", "Skew join handling", "Query profile"],
+    "patterns": ["Measure → optimize layout → enable runtime features → re-measure", "Reduce shuffle and scan work"]
+  },
+  {
+    "id": "system_tables",
+    "name": "Databricks System Tables",
+    "cat": "observability",
+    "aliases": ["system tables", "system.billing", "system.lakeflow", "audit logs", "query history"],
+    "role": "Account-level operational, audit and cost telemetry",
+    "srcSink": "Source",
+    "avail": "Retain dashboards and alerts around usage, spend, lineage, access and job health",
+    "components": ["Billing usage", "Lakeflow run history", "Audit events", "Query history", "Lineage"],
+    "patterns": ["Cost attribution and budgets", "Job SLA monitoring", "Security investigations"]
+  }
+];
+
+const EDGES = [
+  [
+    "onprem",
+    "expressroute",
+    "Private circuit"
+  ],
+  [
+    "onprem",
+    "vpngw",
+    "IPsec site-to-site"
+  ],
+  [
+    "expressroute",
+    "vnet",
+    "Private peering"
+  ],
+  [
+    "vpngw",
+    "vnet",
+    "Encrypted tunnel"
+  ],
+  [
+    "vnet",
+    "privatelink",
+    "Private endpoint subnet"
+  ],
+  [
+    "privatelink",
+    "adls",
+    "Private endpoint"
+  ],
+  [
+    "privatelink",
+    "synapse",
+    "Private endpoint"
+  ],
+  [
+    "privatelink",
+    "keyvault",
+    "Private endpoint"
+  ],
+  [
+    "privatelink",
+    "sql",
+    "Private endpoint"
+  ],
+  [
+    "vnet",
+    "adf",
+    "Self-hosted IR network"
+  ],
+  [
+    "adf",
+    "onprem",
+    "Self-hosted IR reads source"
+  ],
+  [
+    "adf",
+    "adls",
+    "Copy Activity"
+  ],
+  [
+    "adf",
+    "sql",
+    "Incremental copy"
+  ],
+  [
+    "adf",
+    "postgres",
+    "Copy Activity"
+  ],
+  [
+    "adf",
+    "mysql",
+    "Copy Activity"
+  ],
+  [
+    "adf",
+    "sqldbmi",
+    "Copy Activity"
+  ],
+  [
+    "adf",
+    "databricks",
+    "Notebook / job"
+  ],
+  [
+    "adf",
+    "synapse",
+    "Pipeline / notebook"
+  ],
+  [
+    "adf",
+    "fabric",
+    "Pipeline activity"
+  ],
+  [
+    "adls",
+    "databricks",
+    "Delta/Parquet read-write"
+  ],
+  [
+    "adls",
+    "synapse",
+    "Serverless SQL / COPY"
+  ],
+  [
+    "adls",
+    "powerbi",
+    "Semantic model via SQL layer"
+  ],
+  [
+    "databricks",
+    "synapse",
+    "Curated tables"
+  ],
+  [
+    "synapse",
+    "powerbi",
+    "DirectQuery / Import"
+  ],
+  [
+    "databricks",
+    "powerbi",
+    "SQL endpoint / semantic layer"
+  ],
+  [
+    "eventhub",
+    "stream",
+    "Streaming input"
+  ],
+  [
+    "eventhub",
+    "adls",
+    "Capture archive"
+  ],
+  [
+    "stream",
+    "powerbi",
+    "Push / streaming dataset"
+  ],
+  [
+    "stream",
+    "adls",
+    "Windowed sink"
+  ],
+  [
+    "stream",
+    "synapse",
+    "Output sink"
+  ],
+  [
+    "iothub",
+    "eventhub",
+    "Event Hub-compatible route"
+  ],
+  [
+    "iothub",
+    "stream",
+    "Streaming input"
+  ],
+  [
+    "servicebus",
+    "functions",
+    "Queue/topic trigger"
+  ],
+  [
+    "eventgrid",
+    "functions",
+    "Event trigger"
+  ],
+  [
+    "eventgrid",
+    "adf",
+    "Event trigger"
+  ],
+  [
+    "blob",
+    "eventgrid",
+    "Blob events"
+  ],
+  [
+    "blob",
+    "adls",
+    "Object/lake storage"
+  ],
+  [
+    "cosmos",
+    "adf",
+    "Batch extract"
+  ],
+  [
+    "cosmos",
+    "databricks",
+    "Change feed"
+  ],
+  [
+    "sql",
+    "databricks",
+    "JDBC/connector"
+  ],
+  [
+    "postgres",
+    "databricks",
+    "Connector"
+  ],
+  [
+    "mysql",
+    "databricks",
+    "Connector"
+  ],
+  [
+    "sql",
+    "adf",
+    "Source connector"
+  ],
+  [
+    "sqldbmi",
+    "adf",
+    "Source connector"
+  ],
+  [
+    "synapse",
+    "search",
+    "Index/query data"
+  ],
+  [
+    "adls",
+    "search",
+    "Indexer / vector source"
+  ],
+  [
+    "search",
+    "ai_foundry",
+    "RAG retrieval"
+  ],
+  [
+    "ai_foundry",
+    "apim",
+    "AI API"
+  ],
+  [
+    "apim",
+    "functions",
+    "API gateway"
+  ],
+  [
+    "apim",
+    "aks",
+    "API gateway"
+  ],
+  [
+    "frontdoor",
+    "apim",
+    "Global edge"
+  ],
+  [
+    "frontdoor",
+    "appservice",
+    "Web origin"
+  ],
+  [
+    "applicationgateway",
+    "aks",
+    "Ingress"
+  ],
+  [
+    "applicationgateway",
+    "appservice",
+    "Ingress"
+  ],
+  [
+    "loadbalancer",
+    "aks",
+    "L4 load balancing"
+  ],
+  [
+    "functions",
+    "sql",
+    "Write / query"
+  ],
+  [
+    "functions",
+    "cosmos",
+    "SDK / binding"
+  ],
+  [
+    "logicapps",
+    "servicebus",
+    "Connector"
+  ],
+  [
+    "logicapps",
+    "eventgrid",
+    "Connector"
+  ],
+  [
+    "logicapps",
+    "apim",
+    "HTTP/API"
+  ],
+  [
+    "acr",
+    "aks",
+    "Image pull"
+  ],
+  [
+    "acr",
+    "containerapps",
+    "Image pull"
+  ],
+  [
+    "devops",
+    "acr",
+    "Build/push"
+  ],
+  [
+    "devops",
+    "adf",
+    "CI/CD artifacts"
+  ],
+  [
+    "devops",
+    "synapse",
+    "Workspace deployment"
+  ],
+  [
+    "devops",
+    "databricks",
+    "Bundle/job deployment"
+  ],
+  [
+    "devops",
+    "ml",
+    "Model pipeline"
+  ],
+  [
+    "adls",
+    "ml",
+    "Training data"
+  ],
+  [
+    "databricks",
+    "ml",
+    "Features / training"
+  ],
+  [
+    "ml",
+    "apim",
+    "Managed endpoint"
+  ],
+  [
+    "ml",
+    "ai_foundry",
+    "AI/ML integration"
+  ],
+  [
+    "entra",
+    "adls",
+    "RBAC / ACL auth"
+  ],
+  [
+    "entra",
+    "adf",
+    "Managed identity auth"
+  ],
+  [
+    "entra",
+    "synapse",
+    "Managed identity auth"
+  ],
+  [
+    "entra",
+    "databricks",
+    "SSO / identity"
+  ],
+  [
+    "entra",
+    "sql",
+    "Azure AD auth"
+  ],
+  [
+    "managed_identity",
+    "adls",
+    "Token / RBAC"
+  ],
+  [
+    "managed_identity",
+    "keyvault",
+    "Token / secret access"
+  ],
+  [
+    "keyvault",
+    "adf",
+    "Linked service secret"
+  ],
+  [
+    "keyvault",
+    "databricks",
+    "Secret scope"
+  ],
+  [
+    "keyvault",
+    "synapse",
+    "Linked service secret"
+  ],
+  [
+    "purview",
+    "adls",
+    "Catalog / classify"
+  ],
+  [
+    "purview",
+    "synapse",
+    "Lineage / classify"
+  ],
+  [
+    "purview",
+    "sql",
+    "Catalog / classify"
+  ],
+  [
+    "purview",
+    "databricks",
+    "Unity Catalog / lineage"
+  ],
+  [
+    "policy",
+    "vnet",
+    "Network guardrails"
+  ],
+  [
+    "policy",
+    "adls",
+    "Storage guardrails"
+  ],
+  [
+    "policy",
+    "sql",
+    "SQL guardrails"
+  ],
+  [
+    "defender",
+    "vnet",
+    "Security posture"
+  ],
+  [
+    "defender",
+    "aks",
+    "Workload protection"
+  ],
+  [
+    "monitor",
+    "adf",
+    "Diagnostics"
+  ],
+  [
+    "monitor",
+    "databricks",
+    "Logs / metrics"
+  ],
+  [
+    "monitor",
+    "synapse",
+    "Diagnostics"
+  ],
+  [
+    "monitor",
+    "eventhub",
+    "Metrics"
+  ],
+  [
+    "monitor",
+    "aks",
+    "Container insights"
+  ],
+  [
+    "monitor",
+    "appservice",
+    "App telemetry"
+  ],
+  [
+    "appinsights",
+    "monitor",
+    "Telemetry"
+  ],
+  [
+    "loganalytics",
+    "monitor",
+    "KQL workspace"
+  ],
+  [
+    "backup",
+    "sql",
+    "Database backup"
+  ],
+  [
+    "backup",
+    "blob",
+    "Storage backup"
+  ],
+  [
+    "site_recovery",
+    "vnet",
+    "DR orchestration"
+  ],
+  [
+    "virtualwan",
+    "expressroute",
+    "Managed connectivity"
+  ],
+  [
+    "virtualwan",
+    "vpngw",
+    "Managed VPN"
+  ],
+  [
+    "fabric",
+    "powerbi",
+    "Native semantic / reports"
+  ],
+  [
+    "fabric",
+    "adls",
+    "OneLake shortcuts / data movement"
+  ],
+  [
+    "storagequeue",
+    "functions",
+    "Queue trigger"
+  ],
+  [
+    "redis",
+    "appservice",
+    "Cache"
+  ],
+  [
+    "redis",
+    "aks",
+    "Cache"
+  ],
+  [
+    "databricks",
+    "delta_lake",
+    "Reads and writes transactional tables"
+  ],
+  [
+    "databricks",
+    "unity_catalog",
+    "Governed objects and permissions"
+  ],
+  [
+    "databricks",
+    "autoloader",
+    "Incremental file ingestion"
+  ],
+  [
+    "databricks",
+    "structured_streaming",
+    "Streaming compute"
+  ],
+  [
+    "databricks",
+    "lakeflow_pipelines",
+    "Declarative pipelines"
+  ],
+  [
+    "databricks",
+    "lakeflow_jobs",
+    "Production task orchestration"
+  ],
+  [
+    "databricks",
+    "databricks_bundles",
+    "Deployment as code"
+  ],
+  [
+    "databricks",
+    "mlflow",
+    "Model lifecycle"
+  ],
+  [
+    "databricks",
+    "feature_store",
+    "Governed ML features"
+  ],
+  [
+    "databricks",
+    "vector_search",
+    "Lakehouse RAG retrieval"
+  ],
+  [
+    "databricks",
+    "photon_aqe",
+    "Optimized execution"
+  ],
+  [
+    "databricks",
+    "system_tables",
+    "Cost, audit and job telemetry"
+  ],
+  [
+    "adls",
+    "autoloader",
+    "New files discovered incrementally"
+  ],
+  [
+    "autoloader",
+    "delta_lake",
+    "Bronze streaming writes"
+  ],
+  [
+    "eventhub",
+    "structured_streaming",
+    "Event stream source"
+  ],
+  [
+    "structured_streaming",
+    "delta_lake",
+    "Checkpointed streaming sink"
+  ],
+  [
+    "lakeflow_pipelines",
+    "delta_lake",
+    "Bronze / Silver / Gold tables"
+  ],
+  [
+    "unity_catalog",
+    "adls",
+    "External locations and volumes"
+  ],
+  [
+    "unity_catalog",
+    "entra",
+    "Group-based access"
+  ],
+  [
+    "unity_catalog",
+    "purview",
+    "Catalog and lineage integration"
+  ],
+  [
+    "databricks_bundles",
+    "devops",
+    "CI/CD promotion"
+  ],
+  [
+    "mlflow",
+    "feature_store",
+    "Features in training sets"
+  ],
+  [
+    "vector_search",
+    "ai_foundry",
+    "Grounded model context"
+  ],
+  [
+    "system_tables",
+    "loganalytics",
+    "Operational dashboards and alerts"
+  ],
+  [
+    "unity_catalog",
+    "system_tables",
+    "Audit, lineage and access telemetry"
+  ],
+  [
+    "purview",
+    "system_tables",
+    "Governance metadata and lineage signals"
+  ]
+];
+
+const SAMPLE_QUESTIONS = [
+  "What is a data catalog in Azure Databricks and how does it connect?",
+  "How do I bring data from a private on-prem network into ADLS?",
+  "Show a complete Bronze → Silver → Gold medallion architecture.",
+  "How does Event Hubs data get to Power BI in real time?",
+  "How do I build a metadata-driven Synapse pipeline?",
+  "How do I connect 4 private networks to Azure?",
+  "Explain ADLS Gen2 in detail.",
+  "How do I build a secure RAG architecture over ADLS?",
+  "Compare Synapse and Databricks for a lakehouse."
+];
+
+/* ---------------------------------------------------------------
+   INDEXES
+--------------------------------------------------------------- */
+const idIndex = {};
+NODES.forEach((n, i) => { idIndex[n.id] = i; });
+
+const edgeData = EDGES.map(([from, to, label]) => ({ a: idIndex[from], b: idIndex[to], label }));
+const adjacency = NODES.map(() => new Map()); // neighborIndex -> label
+edgeData.forEach(e => {
+  adjacency[e.a].set(e.b, e.label);
+  adjacency[e.b].set(e.a, e.label);
+});
+
+/* ---------------------------------------------------------------
+   LEGEND
+--------------------------------------------------------------- */
+const legendEl = document.getElementById('legend');
+Object.entries(CATEGORIES).forEach(([key, c]) => {
+  const item = document.createElement('div');
+  item.className = 'item';
+  item.innerHTML = `<span class="dot" style="background:${c.color}"></span>${c.label}`;
+  legendEl.appendChild(item);
+});
+
+/* ---------------------------------------------------------------
+   PHYSICS SIM
+--------------------------------------------------------------- */
+const canvas = document.getElementById('cv');
+const ctx = canvas.getContext('2d');
+let W, H, DPR;
+let layoutReady = false;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = canvas.clientWidth; H = canvas.clientHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  if (layoutReady) initPositions();
+}
+window.addEventListener('resize', resize);
+
+function initPositions() {
+  const left = 42, right = Math.max(180, W - 44);
+  const top = Math.min(Math.max(150, H * 0.18), H - 180), bottom = Math.max(top + 120, H - 58);
+  const cx = (left + right) / 2, cy = (top + bottom) / 2;
+  const rx = Math.max(120, (right - left) * 0.46);
+  const ry = Math.max(90, (bottom - top) * 0.46);
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  NODES.forEach((n, i) => {
+    // Deterministic phyllotaxis: the same map opens in the same place every time.
+    const spread = Math.sqrt((i + 0.8) / NODES.length);
+    const angle = i * goldenAngle - Math.PI / 2;
+    n.homeX = cx + Math.cos(angle) * rx * spread;
+    n.homeY = cy + Math.sin(angle) * ry * spread;
+    n.x = n.homeX; n.y = n.homeY;
+    n.vx = 0; n.vy = 0; n.r = W < 700 ? 22 : (NODES.length > 58 ? 19 : 24);
+    n.anchor = null;
+  });
+  layoutReady = true;
+}
+
+let focusMode = false;      // true while a traced path is pinned
+let pathNodeSet = new Set(); // node indices in the active path
+let pathEdgeKeys = new Set(); // "a-b" keys in the active path
+let traceOrderedPath = []; // ordered route, including conceptual architecture hops
+let traceOriginalPositions = new Map(); // restore only the traced nodes after the drawer closes
+let userMotionPaused = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const motionToggle = document.getElementById('motion-toggle');
+function syncMotionToggle() {
+  motionToggle.setAttribute('aria-pressed', String(userMotionPaused));
+  motionToggle.textContent = userMotionPaused ? '● motion paused' : '◌ gentle motion';
+}
+motionToggle.addEventListener('click', () => {
+  userMotionPaused = !userMotionPaused;
+  NODES.forEach(n => { n.vx = 0; n.vy = 0; });
+  syncMotionToggle();
+});
+syncMotionToggle();
+
+function step() {
+  // A trace freezes node positions. Only the highlighted path particles keep moving.
+  if (focusMode || userMotionPaused) {
+    NODES.forEach(n => { n.vx = 0; n.vy = 0; });
+    return;
+  }
+  const tick = performance.now() * 0.00016;
+  for (let i = 0; i < NODES.length; i++) {
+    for (let j = i + 1; j < NODES.length; j++) {
+      const a = NODES[i], b = NODES[j];
+      let dx = a.x - b.x, dy = a.y - b.y;
+      let dist2 = dx * dx + dy * dy;
+      let dist = Math.sqrt(dist2) || 0.01;
+      if (dist < 94) {
+        const force = 680 / (dist2 + 500);
+        const fx = (dx / dist) * force, fy = (dy / dist) * force;
+        a.vx += fx; a.vy += fy;
+        b.vx -= fx; b.vy -= fy;
+      }
+    }
+  }
+  edgeData.forEach(e => {
+    const a = NODES[e.a], b = NODES[e.b];
+    let dx = b.x - a.x, dy = b.y - a.y;
+    let dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
+    const target = 145;
+    const force = (dist - target) * 0.00012;
+    const fx = (dx / dist) * force, fy = (dy / dist) * force;
+    a.vx += fx; a.vy += fy;
+    b.vx -= fx; b.vy -= fy;
+  });
+  NODES.forEach((n, i) => {
+    n.vx += (n.homeX - n.x) * 0.018 + Math.cos(tick + i * 1.7) * 0.0012;
+    n.vy += (n.homeY - n.y) * 0.018 + Math.sin(tick * 1.13 + i * 1.3) * 0.0009;
+  });
+  NODES.forEach(n => {
+    if (n.dragging) return;
+    n.vx *= 0.9; n.vy *= 0.9;
+    n.x += n.vx; n.y += n.vy;
+    const margin = n.r + 12;
+    if (n.x < margin || n.x > W - margin) { n.x = Math.max(margin, Math.min(W - margin, n.x)); n.vx *= -0.25; }
+    if (n.y < margin || n.y > H - margin) { n.y = Math.max(margin, Math.min(H - margin, n.y)); n.vy *= -0.25; }
+  });
+}
+
+/* ---------------------------------------------------------------
+   FLOW PARTICLES
+--------------------------------------------------------------- */
+const particles = edgeData.map(e => ({
+  edge: e, t: Math.random(),
+  speed: 0.0022 + Math.random() * 0.0022,
+  size: 1.6 + Math.random() * 1.4,
+}));
+
+/* ---------------------------------------------------------------
+   RENDER
+--------------------------------------------------------------- */
+let hoverNode = null;
+let selectedNode = null;
+function nodeColor(n) { return CATEGORIES[n.cat].color; }
+function edgeKey(a, b) { return a < b ? a + '-' + b : b + '-' + a; }
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  edgeData.forEach(e => {
+    const a = NODES[e.a], b = NODES[e.b];
+    const onPath = pathEdgeKeys.has(edgeKey(e.a, e.b));
+    const dimBySelection = selectedNode && !(a.id === selectedNode || b.id === selectedNode);
+    const dim = focusMode ? !onPath : dimBySelection;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+    ctx.strokeStyle = onPath ? 'rgba(240,168,72,0.82)' : (dim ? 'rgba(60,72,105,0.08)' : 'rgba(120,138,180,0.18)');
+    ctx.lineWidth = onPath ? 2.4 : (dim ? 1 : 1.3);
+    ctx.stroke();
+  });
+
+  // The trace line is drawn independently of the background graph so an
+  // architecture recipe stays readable even when a hop is conceptual.
+  if (focusMode && traceOrderedPath.length > 1) {
+    ctx.beginPath();
+    traceOrderedPath.forEach((idx,i) => {
+      const n=NODES[idx];
+      if(i===0)ctx.moveTo(n.x,n.y);else ctx.lineTo(n.x,n.y);
+    });
+    ctx.strokeStyle='rgba(240,168,72,.94)';ctx.lineWidth=3.2;ctx.stroke();
+  }
+
+  particles.forEach(p => {
+    const onPath = pathEdgeKeys.has(edgeKey(p.edge.a, p.edge.b));
+    const spd = userMotionPaused ? 0 : (onPath ? p.speed * 2.2 : (focusMode ? 0 : p.speed * 0.55));
+    p.t += spd;
+    if (p.t > 1) p.t = 0;
+    const a = NODES[p.edge.a], b = NODES[p.edge.b];
+    const dimBySelection = selectedNode && !(a.id === selectedNode || b.id === selectedNode);
+    const dim = focusMode ? !onPath : dimBySelection;
+    const x = a.x + (b.x - a.x) * p.t, y = a.y + (b.y - a.y) * p.t;
+    ctx.beginPath();
+    ctx.arc(x, y, onPath ? p.size + 1 : p.size, 0, Math.PI * 2);
+    ctx.fillStyle = onPath ? '#f0a848' : (dim ? 'rgba(120,138,180,0.12)' : nodeColor(a));
+    ctx.shadowBlur = dim && !onPath ? 0 : 7;
+    ctx.shadowColor = onPath ? '#f0a848' : nodeColor(a);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+
+  NODES.forEach((n, i) => {
+    const onPath = pathNodeSet.has(i);
+    const dimBySelection = selectedNode && n.id !== selectedNode && !adjacency[idIndex[selectedNode]].has(i);
+    const dim = focusMode ? !onPath : dimBySelection;
+    const isSelected = n.id === selectedNode;
+    const col = nodeColor(n);
+
+    if (isSelected || onPath) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r + 10, 0, Math.PI * 2);
+      ctx.strokeStyle = onPath ? '#f0a848' : col;
+      ctx.globalAlpha = 0.55; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    ctx.fillStyle = dim ? 'rgba(20,26,44,0.9)' : '#0d1428';
+    ctx.fill();
+    ctx.lineWidth = isSelected || onPath ? 2.2 : 1.4;
+    ctx.strokeStyle = dim ? 'rgba(90,105,140,0.25)' : col;
+    ctx.globalAlpha = dim ? 0.35 : 1;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = dim ? 'rgba(90,105,140,0.4)' : col;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.font = '600 11.5px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = dim ? 'rgba(120,130,155,0.45)' : '#eef2fb';
+    wrapLabel(n.name, n.x, n.y + n.r + 16);
+
+    if (onPath) {
+      const order = [...pathNodeSet].indexOf(i);
+      ctx.font = '700 10px ' + "'JetBrains Mono', monospace";
+      ctx.fillStyle = '#0d1428';
+      ctx.beginPath(); ctx.arc(n.x + n.r - 6, n.y - n.r + 6, 9, 0, Math.PI * 2);
+      ctx.fillStyle = '#f0a848'; ctx.fill();
+      ctx.fillStyle = '#0d1428';
+      ctx.fillText(String(order + 1), n.x + n.r - 6, n.y - n.r + 9.5);
+    }
+  });
+}
+
+function wrapLabel(text, x, y) {
+  const words = text.split(' ');
+  if (words.length === 1 || text.length < 14) { ctx.fillText(text, x, y); return; }
+  const mid = Math.ceil(words.length / 2);
+  ctx.fillText(words.slice(0, mid).join(' '), x, y);
+  ctx.fillText(words.slice(mid).join(' '), x, y + 13);
+}
+
+function loop() { step(); draw(); requestAnimationFrame(loop); }
+
+/* ---------------------------------------------------------------
+   INTERACTION — drag & click
+--------------------------------------------------------------- */
+let dragNode = null, dragOffset = { x: 0, y: 0 }, pointerDownPos = null;
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}
+function nodeAt(pos) {
+  for (let i = NODES.length - 1; i >= 0; i--) {
+    const n = NODES[i];
+    const dx = pos.x - n.x, dy = pos.y - n.y;
+    if (dx * dx + dy * dy < n.r * n.r * 1.4) return n;
+  }
+  return null;
+}
+canvas.addEventListener('mousedown', e => {
+  const pos = getPos(e); pointerDownPos = pos;
+  const n = nodeAt(pos);
+  if (n) { dragNode = n; n.dragging = true; n.anchor = null; dragOffset = { x: n.x - pos.x, y: n.y - pos.y }; canvas.classList.add('dragging'); }
+});
+window.addEventListener('mousemove', e => {
+  const pos = getPos(e);
+  if (dragNode) { dragNode.x = pos.x + dragOffset.x; dragNode.y = pos.y + dragOffset.y; }
+  else { hoverNode = nodeAt(pos); canvas.style.cursor = hoverNode ? 'pointer' : 'grab'; }
+});
+window.addEventListener('mouseup', e => {
+  if (dragNode) {
+    dragNode.dragging = false;
+    const pos = getPos(e);
+    const moved = pointerDownPos && Math.hypot(pos.x - pointerDownPos.x, pos.y - pointerDownPos.y) > 6;
+    if (!moved) selectNode(dragNode.id);
+    dragNode = null; canvas.classList.remove('dragging');
+  }
+});
+canvas.addEventListener('touchstart', e => {
+  const pos = getPos(e); pointerDownPos = pos;
+  const n = nodeAt(pos);
+  if (n) { dragNode = n; n.dragging = true; n.anchor = null; dragOffset = { x: n.x - pos.x, y: n.y - pos.y }; }
+}, { passive: true });
+canvas.addEventListener('touchmove', e => {
+  if (dragNode) { const pos = getPos(e); dragNode.x = pos.x + dragOffset.x; dragNode.y = pos.y + dragOffset.y; }
+}, { passive: true });
+canvas.addEventListener('touchend', e => {
+  if (!dragNode) return;
+  const tappedNode = dragNode;
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.changedTouches && e.changedTouches[0];
+  const end = touch ? { x: touch.clientX - rect.left, y: touch.clientY - rect.top } : pointerDownPos;
+  const moved = pointerDownPos && end && Math.hypot(end.x - pointerDownPos.x, end.y - pointerDownPos.y) > 8;
+  tappedNode.dragging = false; dragNode = null;
+  if (!moved) selectNode(tappedNode.id);
+}, { passive: true });
+
+/* ---------------------------------------------------------------
+   DETAIL PANEL
+--------------------------------------------------------------- */
+const panel = document.getElementById('panel');
+function fillList(el, items) {
+  el.innerHTML = '';
+  items.forEach(t => { const li = document.createElement('li'); li.textContent = t; el.appendChild(li); });
+}
+function selectNode(id) {
+  selectedNode = id;
+  const n = NODES[idIndex[id]];
+  const cat = CATEGORIES[n.cat];
+  document.getElementById('p-cat').textContent = cat.label;
+  document.getElementById('p-cat').style.background = cat.color + '22';
+  document.getElementById('p-cat').style.color = cat.color;
+  document.getElementById('p-title').textContent = n.name;
+  document.getElementById('p-role').textContent = n.role;
+  document.getElementById('p-srcsink').textContent = n.srcSink;
+  document.getElementById('p-avail').textContent = n.avail;
+  fillList(document.getElementById('p-components'), n.components);
+  fillList(document.getElementById('p-patterns'), n.patterns);
+
+  const linksEl = document.getElementById('p-links');
+  linksEl.innerHTML = '';
+  adjacency[idIndex[id]].forEach((label, ni) => {
+    const neighbor = NODES[ni];
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="arrow">→</span> ${neighbor.name} <span class="lbl">${label}</span>`;
+    li.onclick = () => selectNode(neighbor.id);
+    linksEl.appendChild(li);
+  });
+
+  panel.classList.add('open');
+}
+function closePanel() { panel.classList.remove('open'); selectedNode = null; }
+
+/* ---------------------------------------------------------------
+   QUESTION BOX — parse, pathfind, arrange, explain
+--------------------------------------------------------------- */
+const chipsEl = document.getElementById('chips');
+SAMPLE_QUESTIONS.forEach(q => {
+  const c = document.createElement('div');
+  c.className = 'chip'; c.textContent = q;
+  c.onclick = () => { document.getElementById('ask-input').value = q; handleQuery(q); };
+  chipsEl.appendChild(c);
+});
+
+function matchNodesInText(text) {
+  const lower = text.toLowerCase();
+  const found = [];
+  NODES.forEach(n => {
+    const fullName=n.name.toLowerCase();
+    const shortName=fullName.replace(/^(azure|microsoft)\s+/,'');
+    const names = [fullName, shortName, ...n.aliases];
+    let bestIdx = -1;
+    names.forEach(alias => {
+      const safe = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const idx = alias.length <= 3 ? lower.search(new RegExp(`\\b${safe}\\b`)) : lower.indexOf(alias);
+      if (idx !== -1 && (bestIdx === -1 || idx < bestIdx)) bestIdx = idx;
+    });
+    if (bestIdx !== -1) found.push({ idx: bestIdx, id: n.id });
+  });
+  found.sort((a, b) => a.idx - b.idx);
+  const seen = new Set(); const ordered = [];
+  found.forEach(f => { if (!seen.has(f.id)) { seen.add(f.id); ordered.push(f.id); } });
+  return ordered;
+}
+
+function bfsPath(startIdx, endIdx) {
+  if (startIdx === endIdx) return [startIdx];
+  const visited = new Set([startIdx]);
+  const queue = [[startIdx]];
+  while (queue.length) {
+    const path = queue.shift();
+    const last = path[path.length - 1];
+    for (const [neighbor] of adjacency[last]) {
+      if (neighbor === endIdx) return [...path, neighbor];
+      if (!visited.has(neighbor)) { visited.add(neighbor); queue.push([...path, neighbor]); }
+    }
+  }
+  return null;
+}
+
+function buildFullPath(waypointIds) {
+  const idxs = waypointIds.map(id => idIndex[id]);
+  let full = [idxs[0]];
+  for (let i = 0; i < idxs.length - 1; i++) {
+    const seg = bfsPath(idxs[i], idxs[i + 1]);
+    if (!seg) return null;
+    full = full.concat(seg.slice(1));
+  }
+  return full;
+}
+
+function arrangePath(pathIdxs) {
+  restoreTracePositions();
+  const ordered=[]; const seen=new Set();
+  pathIdxs.forEach(idx=>{if(!seen.has(idx)){seen.add(idx);ordered.push(idx);}});
+  focusMode = true;
+  traceOrderedPath = ordered;
+  pathNodeSet = new Set(ordered);
+  pathEdgeKeys = new Set();
+  for (let i = 0; i < ordered.length - 1; i++) pathEdgeKeys.add(edgeKey(ordered[i], ordered[i + 1]));
+  // Only traced nodes move. The rest of the floating map remains exactly where it was.
+  const left = 72;
+  const right = Math.max(left + 100, W - (W > 900 ? 430 : 58));
+  const y = Math.max(300, Math.min(H - 145, H * 0.54));
+  const spacing = ordered.length > 1 ? (right - left) / (ordered.length - 1) : 0;
+  ordered.forEach((idx, i) => {
+    const node = NODES[idx];
+    if (!traceOriginalPositions.has(idx)) {
+      traceOriginalPositions.set(idx, { x: node.x, y: node.y, vx: node.vx, vy: node.vy });
+    }
+    node.x = ordered.length === 1 ? (left + right) / 2 : left + spacing * i;
+    node.y = y;
+    node.anchor = null; node.vx = 0; node.vy = 0;
+  });
+  NODES.forEach((node, i) => { if (!pathNodeSet.has(i)) { node.anchor = null; node.vx = 0; node.vy = 0; } });
+}
+
+function restoreTracePositions() {
+  traceOriginalPositions.forEach((pos, idx) => {
+    const node = NODES[idx];
+    node.x = pos.x; node.y = pos.y; node.vx = 0; node.vy = 0; node.anchor = null;
+  });
+  traceOriginalPositions.clear();
+}
+
+function clearFocus() {
+  restoreTracePositions();
+  focusMode = false; pathNodeSet = new Set(); pathEdgeKeys = new Set(); traceOrderedPath = [];
+  NODES.forEach(n => { n.anchor = null; n.vx = 0; n.vy = 0; });
+  document.getElementById('stage').classList.remove('trace-open');
+}
+
+const answerBox = document.getElementById('answer-box');
+
+function renderPathAnswer(pathIdxs) {
+  let html = '<span class="clear-link" onclick="clearAnswer()">clear ✕</span>';
+  pathIdxs.forEach((idx, i) => {
+    const n = NODES[idx];
+    let via = '';
+    if (i > 0) {
+      const prev = pathIdxs[i - 1];
+      via = adjacency[prev].get(idx) || 'connects';
+    }
+    html += `<div class="step"><div class="n">${i + 1}</div><div class="txt">
+      <strong>${n.name}${i > 0 ? ' <span style="color:#f0a848;font-weight:500;font-size:11.5px">— ' + via + '</span>' : ''}</strong>
+      <span>${n.role}</span>
+    </div></div>`;
+  });
+  answerBox.innerHTML = html;
+  answerBox.classList.add('show');
+}
+
+function renderTextAnswer(text) {
+  const escaped = text.replace(/</g, '&lt;');
+  const bolded = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  const lines = bolded.split('\n').filter(l => l.trim().length);
+  let html = '<span class="clear-link" onclick="clearAnswer()">clear ✕</span><ul>';
+  let hasList = false;
+  lines.forEach(line => {
+    const t = line.trim();
+    if (t.startsWith('-') || t.startsWith('•')) { html += `<li>${t.replace(/^[-•]\s*/, '')}</li>`; hasList = true; }
+    else { if (hasList) { html += '</ul>'; hasList = false; } html += `<p style="margin:8px 0">${t}</p>`; }
+  });
+  if (hasList) html += '</ul>';
+  answerBox.innerHTML = html;
+  answerBox.classList.add('show');
+}
+
+function clearAnswer() {
+  answerBox.classList.remove('show'); answerBox.innerHTML = '';
+  document.getElementById('arch-view').classList.remove('show');
+  clearFocus(); closePanel();
+}
+
+async function askModel(question) {
+  // Kept for compatibility with the original handler; the final handler below
+  // uses only the embedded knowledge base and never calls a remote model.
+  renderLocalGeneric(question);
+}
+
+function handleQuery(text) {
+  if (!text.trim()) return;
+  const matched = matchNodesInText(text);
+  if (matched.length >= 2) {
+    const path = buildFullPath(matched);
+    if (path) { arrangePath(path); renderPathAnswer(path); closePanel(); return; }
+  }
+  if (matched.length === 1) {
+    clearFocus();
+    selectNode(matched[0]);
+    answerBox.classList.remove('show');
+    return;
+  }
+  clearFocus();
+  askModel(text);
+}
+
+document.getElementById('ask-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const val = document.getElementById('ask-input').value;
+  handleQuery(val);
+});
+
+/* ---------------------------------------------------------------
+   BOOT
+--------------------------------------------------------------- */
+resize();
+initPositions();
+loop();
+
+/* ===============================================================
+   DEEP ARCHITECTURE / LOCAL AI ENGINE
+   The diagram is intentionally self-contained: it can answer common
+   Azure architecture questions without requiring a secret in the browser.
+   Knowledge is embedded from the Azure map and the Packt Azure Databricks
+   repository chapters 2–12. No question or map data leaves this file.
+=============================================================== */
+const ARCH_PATTERNS = {
+  privateAdls: {
+    title:"Private / on-premises → ADLS Gen2",
+    summary:"A secure enterprise ingestion path: private connectivity → a Self-hosted Integration Runtime → controlled landing in ADLS → validation/transformation → medallion layers → governed serving.",
+    services:["onprem","expressroute","vnet","adf","adls","databricks","synapse","powerbi"],
+    steps:[
+      ["onprem","Private source","SQL Server, files, Oracle or application data stays inside the organisation network."],
+      ["expressroute","Private connectivity","ExpressRoute carries traffic privately; VPN Gateway is the common alternative/fallback."],
+      ["vnet","Azure network boundary","Route into a hub/spoke VNet and keep PaaS access private with Private Endpoints + Private DNS."],
+      ["adf","Self-hosted Integration Runtime","ADF executes the copy close to the private source, so the database does not need a public endpoint."],
+      ["adls","Bronze / raw landing","Write immutable or minimally transformed source data first. Preserve source fidelity and ingestion metadata."],
+      ["databricks","Silver / conformed","Clean, deduplicate, standardize types, enforce quality rules and create Delta tables."],
+      ["synapse","Gold / serving","Expose curated analytical data through serverless SQL, dedicated SQL or another serving model."],
+      ["powerbi","BI / semantic layer","Build the semantic model and reports on trusted Gold data."]
+    ],
+    medallion:true
+  },
+  medallion: {
+    title:"Medallion architecture — Bronze → Silver → Gold",
+    summary:"A layered lake design separates raw history, cleaned/conformed data and business-ready products. The layers are logical contracts, not necessarily three different storage accounts.",
+    services:["adls","adf","databricks","synapse","powerbi"],
+    steps:[
+      ["adf","Ingest","Move source data into the lake with metadata, source identifiers and ingestion timestamps."],
+      ["adls","Bronze","Keep raw source-shaped data for replay, audit and recovery."],
+      ["databricks","Silver","Validate, deduplicate, standardize, join and apply data-quality rules."],
+      ["adls","Gold","Publish business-ready Delta/Parquet datasets and aggregates."],
+      ["synapse","Serve","Query Gold data or load curated marts for predictable BI workloads."],
+      ["powerbi","Consume","Expose governed metrics through semantic models and reports."]
+    ],
+    medallion:true
+  },
+  realtime: {
+    title:"Event Hubs → Stream Analytics → Power BI",
+    summary:"A low-latency streaming path with an archive side-channel: events enter Event Hubs, Stream Analytics windows/transforms them, then fan out to Power BI and ADLS.",
+    services:["eventhub","stream","powerbi","adls"],
+    steps:[
+      ["eventhub","Streaming input","Partitions provide parallelism and consumer groups allow independent readers."],
+      ["stream","Window + transform","Stream Analytics applies SQL windows, filters, joins and enrichment."],
+      ["powerbi","Live serving","Push/streaming output feeds a near-real-time visualization path."],
+      ["adls","Durable archive","Event Hubs Capture or a streaming sink preserves the raw event history for replay and batch analytics."]
+    ],
+    medallion:false
+  },
+  metadata: {
+    title:"Metadata-driven ingestion — Data Factory / Synapse",
+    summary:"One reusable pipeline reads a control table, loops over configuration rows and parameterizes datasets/activities. You avoid creating a pipeline for every table.",
+    services:["sql","adf","synapse","adls"],
+    steps:[
+      ["sql","Control table","Store source system, schema, table, watermark column, target path, load type and active flag."],
+      ["adf","Lookup","Read active control rows once at the start of the pipeline."],
+      ["adf","ForEach","Iterate over each metadata row and pass values into parameterized datasets."],
+      ["adls","Target path","Write to a deterministic landing path such as source/entity/date."],
+      ["adf","Watermark / CDC","Persist the last successful watermark and copy only changed rows next run."],
+      ["synapse","Same pattern","Synapse Pipelines uses the same control-table + Lookup + ForEach + parameterized activity approach."]
+    ],
+    medallion:true
+  },
+  networks: {
+    title:"Connect 4 private networks to Azure",
+    summary:"Use a hub-and-spoke model: centralize connectivity and private DNS in the hub, peer or connect the four networks through Virtual WAN/VNet peering, and keep PaaS private endpoints in controlled subnets.",
+    services:["virtualwan","expressroute","vpngw","vnet","privatelink","adls"],
+    steps:[
+      ["virtualwan","Central hub","Use a managed hub when the topology is large or spans many sites."],
+      ["expressroute","Primary private path","Connect enterprise sites/circuits privately where required."],
+      ["vpngw","Encrypted alternative","Use site-to-site VPN for branches or backup connectivity."],
+      ["vnet","Hub + spokes","Route four networks through a central hub rather than building a full mesh."],
+      ["privatelink","Private PaaS access","Expose ADLS and other PaaS services through private endpoints."],
+      ["adls","Destination","Data lands in ADLS without requiring a public storage endpoint."]
+    ],
+    medallion:false
+  },
+  rag: {
+    title:"Secure RAG over enterprise data",
+    summary:"Governed documents/data are indexed into a retrieval layer, retrieved for each question and passed to an AI model. Identity, private networking and source permissions remain part of the design.",
+    services:["adls","purview","search","ai_foundry","apim","entra"],
+    steps:[
+      ["adls","Authoritative data","Keep source documents and datasets in the governed lake."],
+      ["purview","Govern + classify","Discover sensitive data and maintain catalog/lineage metadata."],
+      ["search","Index + retrieve","Create keyword/vector indexes and retrieve the most relevant chunks."],
+      ["ai_foundry","Generate","Ground the model with retrieved context and evaluate the response."],
+      ["apim","Expose safely","Put an API policy boundary in front of the AI application."],
+      ["entra","Authorize","Use managed identities/RBAC so applications access only what they are allowed to read."]
+    ],
+    medallion:false
+  },
+  compare: {
+    title:"Synapse vs Databricks — choose by workload",
+    summary:"Both can participate in one lake architecture. Choose Databricks for code-first Spark, Delta engineering, streaming and ML; choose Synapse when an integrated Azure SQL/Spark/pipeline workspace or dedicated MPP warehouse is the stronger fit.",
+    services:["adls","databricks","synapse","powerbi"],
+    steps:[
+      ["adls","Shared lake foundation","Keep governed open-format data in ADLS so either engine can consume it."],
+      ["databricks","Databricks strengths","Use for lakehouse engineering, Auto Loader and Structured Streaming, Delta Lake, Unity Catalog, Lakeflow pipelines and ML/AI workloads."],
+      ["synapse","Synapse strengths","Use for serverless SQL over the lake, provisioned dedicated SQL marts, integrated pipelines and teams centered on T-SQL and Azure analytics."],
+      ["powerbi","Serving choice","Power BI can use Databricks SQL, Synapse serverless/dedicated SQL, or curated imports; decide from latency, concurrency and cost." ]
+    ],
+    medallion:false
+  }
+};
+
+const COMPONENT_DETAILS = {
+  "Self-hosted Integration Runtime":["A small runtime installed inside the private network. ADF sends orchestration instructions to it; the runtime reaches the source locally and transfers data through the configured path.","Use when a source is on-premises, in another private network, or cannot expose a public endpoint.","Install multiple nodes in the same runtime for higher availability and plan outbound connectivity/firewall rules.","Do not treat it as a data store. It is an execution/connection bridge."],
+  "Copy Activity":["Moves data between supported sources and sinks and can perform mapping, partitioning and incremental extraction.","Use for straightforward ingestion and movement where Spark-style transformation is unnecessary.","Scale with parallel copy carefully so you do not overload the source database or hit service limits.","A common mistake is running a full table copy every day instead of using a watermark or CDC."],
+  "Pipelines":["A pipeline is the orchestration container: activities, parameters, variables, dependencies, triggers and retry behavior.","Use it to coordinate ingestion, transformation, validation and notification.","Design idempotent steps and make retries safe; keep secrets out of pipeline JSON.","Avoid one giant pipeline. Use parent/child pipelines and reusable metadata-driven components."],
+  "Lookup / ForEach":["Lookup reads configuration; ForEach iterates through it. Together they form the core of metadata-driven pipelines.","Use when many tables/files share the same ingestion logic but differ in configuration.","Control concurrency so dozens of parallel copies do not overload a source.","Do not hard-code one activity per table when the entities have the same behavior."],
+  "Data Flows":["Visual transformation pipelines executed using managed Spark compute.","Use when a team wants visual ETL and does not need custom Spark code.","Size/partition the flow for data volume and avoid unnecessary shuffles.","Data Flow is not the same thing as Copy Activity: Copy moves; Data Flow transforms."],
+  "Serverless SQL pool":["On-demand SQL engine that queries files in the lake without a permanently provisioned warehouse.","Use for exploration, external tables/views and cost-sensitive lake querying.","Performance and cost depend heavily on file format, partitioning and bytes scanned.","Avoid thousands of tiny files and SELECT * across huge folders."],
+  "Dedicated SQL pool":["Provisioned MPP warehouse compute for predictable analytical workloads and curated marts.","Use when workload isolation, predictable concurrency or warehouse semantics justify provisioned capacity.","Design distribution, partitioning and workload management deliberately.","Do not assume a dedicated pool is automatically cheaper than lake querying."],
+  "Spark pools":["On-demand Spark clusters for notebooks and Spark workloads in Synapse.","Use for complex transformations, large-scale engineering or ML-style processing.","Use autoscale/auto-pause and avoid long-lived idle clusters.","For production, orchestrate jobs rather than relying on interactive sessions."],
+  "Link connections":["Near-real-time link capability for supported operational sources into Synapse analytics experiences.","Use when operational data needs low-latency analytical access without building a large batch pipeline.","Check supported source, region and workload constraints before committing the pattern.","It is not a universal CDC mechanism for every database."],
+  "Delta Lake":["Lakehouse table format providing ACID transactions, schema enforcement/evolution and time travel on object storage.","Use for reliable Bronze/Silver/Gold tables and incremental processing.","Partition only on columns that materially improve pruning; compact small files.","Do not create excessive partitions or millions of tiny files."],
+  "Change Data Capture (CDC)":["Captures inserts, updates and deletes so downstream systems can process changes instead of re-reading the full source.","Use for large transactional systems where full loads are expensive.","Persist offsets/watermarks and make downstream writes idempotent.","CDC retention and source log settings can constrain how far back you can restart."],
+  "Private endpoints":["A network interface with a private IP in your VNet that represents access to a PaaS resource.","Use when a PaaS service must be reachable without public network exposure.","Pair with Private DNS and validate routing from every spoke that needs access.","Private Endpoint does not automatically solve identity or authorization."],
+  "Private DNS zones":["Private name resolution that maps service FQDNs to private endpoint IPs.","Use whenever private endpoints are used across hub/spoke networks.","Link the zone to the VNets that need to resolve the private name.","A common failure is private routing working while DNS still resolves the public endpoint."],
+  "Partitions":["Logical parallel lanes in Event Hubs used to scale ingestion and consumption.","Choose a partition key that distributes load while preserving ordering where needed.","Partition count decisions can be difficult to change depending on tier.","Ordering is guaranteed only within a partition."],
+  "Consumer groups":["Independent logical readers of an Event Hubs stream.","Use one consumer group per independent application/processing path.","Monitor lag and avoid sharing one consumer group across unrelated consumers.","Each consumer group maintains its own read position."],
+  "Capture":["Event Hubs capability that automatically persists events to Blob/ADLS.","Use it to create a durable raw archive alongside real-time processing.","Choose time/size windows appropriate to downstream batch jobs.","It is an archive path, not a substitute for curated lake processing."],
+  "Managed identities":["Azure-managed identities that let resources obtain Entra tokens without embedding credentials.","Use for service-to-service access to ADLS, Key Vault, SQL and other Azure resources.","Grant the smallest RBAC scope required and prefer user-assigned identities for shared lifecycle scenarios.","Identity authentication does not replace data-level authorization."],
+  "RBAC":["Role-based access control over Azure resources and data-plane capabilities where supported.","Use it to grant least-privilege access at management group, subscription, resource group or resource scope.","Keep role assignments understandable and review them regularly.","A management-plane role does not automatically grant every data-plane permission."],
+  "OneLake":["Fabric's unified logical data lake storage layer.","Use as the common data foundation for Fabric Lakehouses, Warehouses and analytics.","Use shortcuts where appropriate to reduce unnecessary copies.","Design domains/workspaces and governance boundaries before scaling out."],
+  "Semantic models":["Power BI's business-facing model of relationships, measures, dimensions and metrics.","Use to centralize business logic so reports do not each reinvent calculations.","Keep measures governed and model grain explicit.","A fast dashboard on a badly defined semantic model is still wrong."],
+  "Unity Catalog":["The central governance layer for catalogs, schemas, tables, volumes, models, functions, privileges and lineage across Databricks workspaces.","Use it as the default control plane for production lakehouse data and AI assets.","Prefer account groups, workspace bindings, storage credentials and external locations with least-privilege grants.","Do not grant broad access directly to individual users or bypass governance with embedded storage keys."],
+  "Auto Loader":["Incrementally discovers new files with the cloudFiles source, tracks progress in checkpoints and manages schema state.","Use for scalable file arrival from ADLS/Blob into Bronze Delta tables.","Keep checkpoint and schema locations durable; choose schema evolution behavior and capture unexpected fields in rescuedDataColumn.","Deleting a checkpoint can cause reprocessing; changing schema rules casually can break restartability."],
+  "Structured Streaming":["Spark's incremental processing engine for Event Hubs, files and tables, supporting windows, watermarks and stateful operations.","Use for low-latency pipelines that need the same DataFrame model as batch workloads.","Use deterministic sinks, durable checkpoints and a watermark appropriate to real late-arrival behavior.","A watermark is a state-retention boundary—not a promise that arbitrarily late data will still update old results."],
+  "Lakeflow Declarative Pipelines":["Dependency-aware pipelines (formerly Delta Live Tables) that define streaming tables/materialized views and data-quality expectations.","Use for maintainable Bronze–Silver–Gold pipelines with managed incremental execution and monitoring.","Separate rules that drop invalid rows from rules that only monitor; inspect the pipeline event log and data-quality metrics.","Declarative syntax does not remove the need to define keys, late-data behavior and valid business rules."],
+  "Lakeflow Jobs":["Production task orchestration with DAG dependencies, parameters, retries, alerts, schedules and run history.","Use job compute for scheduled workloads and coordinate notebooks, Python, SQL and pipeline tasks.","Design idempotent tasks, set timeouts, surface structured outputs and use repair runs for recoverable failures.","Do not operate production pipelines from interactive all-purpose clusters."],
+  "Databricks Asset Bundles":["A source-controlled YAML deployment unit for jobs, pipelines, dashboards and related Databricks resources.","Use to validate and deploy the same project across dev, staging and production targets.","Keep environment-specific values in target variables, run bundle validate in CI and promote tested artifacts.","Avoid manual production edits that drift away from the bundle definition."],
+  "Photon / AQE":["Photon accelerates supported SQL/DataFrame workloads; Adaptive Query Execution adjusts joins, shuffle partitions and skew handling at runtime.","Use after establishing a representative performance baseline and fixing obvious data-layout problems.","Inspect query profiles, bytes scanned and shuffle metrics; combine with sensible partitions and clustering.","Caching or adding compute before measuring can hide—not solve—poor plans and tiny-file problems."],
+  "MLflow / Feature Store":["MLflow tracks experiments and registered models; Feature Store centralizes reusable governed features for training and inference.","Use together to make model inputs, metrics, artifacts and promotion decisions reproducible.","Use point-in-time correct feature lookups and Unity Catalog governance; log parameters, metrics and model lineage.","Training-serving skew appears when online inference reconstructs features differently from training."],
+  "Vector Search / AI Gateway":["Vector Search retrieves relevant governed chunks for RAG; AI Gateway applies routing, rate limits, monitoring and cost controls around model endpoints.","Use for enterprise generative-AI applications grounded in lakehouse data.","Track index freshness, source permissions, retrieval quality, prompt/model versions and endpoint usage.","A vector index is not authorization—enforce source-level identity and test for sensitive-data leakage."],
+  "System Tables":["Governed account telemetry for billing, audit, query, lineage and Lakeflow job/pipeline activity.","Use for cost attribution, SLA dashboards, security investigations and operational health checks.","Create durable dashboards and alerts over the relevant system schemas and tag workloads for ownership.","Telemetry without ownership and alert thresholds becomes an archive, not observability."],
+  "ACID transactions":["Delta Lake coordinates atomic commits through its transaction log so readers see a consistent table state.","Use for reliable concurrent ingestion, updates, deletes and downstream reads on object storage.","Monitor log/checkpoint health and retention; make writes retry-safe.","ACID at the table does not automatically make a multi-table business transaction atomic."],
+  "MERGE / upserts":["MERGE applies matched updates/deletes and unmatched inserts, making it the core Delta pattern for CDC and incremental loads.","Use with stable business keys and a deduplicated change set.","Persist source offsets/watermarks and make reruns idempotent.","Multiple source rows matching the same target key can make a MERGE ambiguous or fail."],
+  "Expectations":["Named data-quality rules in Lakeflow pipelines that can retain, drop or fail invalid records while emitting metrics.","Use to turn data contracts into observable pipeline behavior.","Separate hard correctness constraints from warning-only checks and route quarantined records for investigation.","Dropping data silently can make totals look healthy while hiding upstream defects."],
+  "Schema Registry":["A governed store for event schemas so producers and consumers agree on message structure and compatibility.","Use with Event Hubs when many applications exchange Avro or other schema-controlled events and changes must be managed safely.","Apply compatibility rules, version schemas deliberately and keep consumer deployment aligned with schema evolution.","A registry validates structure contracts; it does not validate every business-quality rule inside an event."]
+};
+
+const PACKT_SOURCE = "PacktPublishing/Data-Engineering-with-Azure-Databricks — embedded chapter guidance (2–5, 7–12)";
+const KNOWLEDGE_TOPICS = [
+  {
+    id:"catalog", title:"Data catalog in Azure and Azure Databricks",
+    keywords:["data catalog","catalog in databricks","databricks catalog","azure data catalog","unity catalog vs purview","what is catalog","metadata catalog","catalog governance"],
+    summary:"A data catalog is the searchable governance layer that tells people what data exists, who owns it, what it means, where it came from and who may use it. In Azure Databricks, Unity Catalog governs lakehouse objects and access; Microsoft Purview provides broader enterprise discovery, classification, glossary and lineage across Azure and other systems.",
+    bullets:[
+      "Unity Catalog organizes assets as metastore → catalog → schema → table/view/volume/model/function and applies grants, ownership, tags and lineage across Databricks workspaces.",
+      "It connects to ADLS through managed identities, storage credentials, external locations and volumes; the catalog stores metadata and permissions while the data remains in governed storage.",
+      "It connects to Microsoft Entra ID so account groups receive least-privilege access instead of granting permissions directly to individuals.",
+      "Microsoft Purview scans and classifies Azure and non-Databricks sources, supplies an enterprise glossary and can complement Unity Catalog with cross-platform discovery and lineage.",
+      "Databricks System Tables expose audit, lineage, access and operational signals; Purview and monitoring tools use these signals to support governance and investigations.",
+      "Typical flow: Entra group → Unity Catalog privilege → catalog/schema/table or external location → ADLS data; Purview adds enterprise search, classification and lineage around that governed path."
+    ], services:["entra","managed_identity","unity_catalog","databricks","adls","purview","system_tables"], source:"Azure map + Packt repository Chapters 2 and 11"
+  },
+  {
+    id:"platform", title:"How an Azure data platform fits together",
+    keywords:["azure architecture","data platform","end to end","source sink","design platform","reference architecture"],
+    summary:"Treat the platform as connected planes: ingest, store, process, serve, govern, secure and observe. A strong design keeps data movement explicit and makes every production step replayable and monitorable.",
+    bullets:[
+      "Ingest batch data with Azure Data Factory or streaming data with Event Hubs; use Self-hosted Integration Runtime for private sources.",
+      "Land durable raw history in ADLS Gen2, then publish conformed Silver and business-ready Gold datasets.",
+      "Transform with Databricks, Synapse Spark/SQL or Fabric according to workload and team skills.",
+      "Serve through Synapse, Databricks SQL, Fabric or Power BI semantic models; do not make reports reconstruct business logic.",
+      "Apply Entra ID, managed identities, Key Vault, Private Link, Unity Catalog/Purview and central monitoring across the whole flow."
+    ], services:["adf","eventhub","adls","databricks","synapse","powerbi","entra","monitor"], source:"Embedded Azure ecosystem map"
+  },
+  {
+    id:"adls", title:"ADLS Gen2 and the medallion contract",
+    keywords:["adls","data lake","bronze silver gold","medallion","raw zone","silver layer","gold layer","lake storage"],
+    summary:"ADLS Gen2 is the durable lake foundation. Bronze, Silver and Gold are data contracts: raw/replayable, conformed/quality-controlled and business-ready—not merely folder names.",
+    bullets:[
+      "Bronze preserves source fidelity, ingestion time, source identifiers and enough history to replay failed downstream logic.",
+      "Silver standardizes types, deduplicates, applies keys, joins reference data and records data-quality outcomes.",
+      "Gold publishes facts, dimensions, aggregates and trusted metrics at an explicit grain.",
+      "Prefer Parquet/Delta over CSV for analytical layers; avoid tiny files and high-cardinality partition columns.",
+      "Secure with Entra groups, managed identities, RBAC plus ACLs where required, Private Endpoints and Private DNS."
+    ], services:["adls","delta_lake","databricks","unity_catalog","entra","privatelink"], source:"Azure map + "+PACKT_SOURCE
+  },
+  {
+    id:"setup", title:"Production Azure Databricks foundation",
+    keywords:["setup databricks","databricks environment","workspace setup","external location","storage credential","managed table","external table","compute selection","serverless classic"],
+    summary:"Start with governance and identity before building pipelines: Unity Catalog, account groups, storage credentials/external locations, governed volumes/tables, fit-for-purpose compute and system-table monitoring.",
+    bullets:[
+      "Use Unity Catalog catalogs and schemas as ownership boundaries; grant privileges to Entra-synchronized groups, not individuals.",
+      "Use managed identities and storage credentials for ADLS, then expose approved paths through external locations and volumes.",
+      "Choose managed tables when Databricks should own lifecycle; use external tables when storage lifecycle must remain independent.",
+      "Use serverless or ephemeral job compute where supported; keep interactive compute for exploration, not scheduled production work.",
+      "Query system tables for usage, cost, lineage and operational visibility from the beginning."
+    ], services:["databricks","unity_catalog","entra","managed_identity","adls","system_tables"], source:"Packt repository Chapter 2"
+  },
+  {
+    id:"batch", title:"Batch ingestion into Databricks",
+    keywords:["batch ingestion","jdbc ingestion","rest api ingestion","full load","incremental load","watermark load","copy into","ingest csv","ingest parquet"],
+    summary:"Batch ingestion can arrive from ADLS/Blob, relational databases, REST APIs or Data Factory. The production pattern separates extraction state from Delta writes and updates the watermark only after a successful commit.",
+    bullets:[
+      "Read CSV/JSON/Parquet with an explicit schema when stability matters; write governed Delta tables through Unity Catalog.",
+      "For JDBC sources, partition reads carefully and cap concurrency so extraction does not overload the operational database.",
+      "For incremental loads, read changes after the saved watermark, deduplicate by business key/order, MERGE into Delta, then advance state.",
+      "Make REST ingestion retry-safe, handle pagination and rate limits, and persist raw responses before complex transformation.",
+      "Use Data Factory for cross-system movement/orchestration and Databricks for code-heavy transformation."
+    ], services:["adf","sql","adls","databricks","delta_lake","unity_catalog"], source:"Packt repository Chapter 3"
+  },
+  {
+    id:"spark", title:"Spark execution and tuning basics",
+    keywords:["spark architecture","lazy evaluation","dag","partitioning","cache","caching","data skew","skew join","shuffle","spark session","aqe"],
+    summary:"Spark builds a lazy execution DAG, then divides work into stages and tasks. Most performance wins come from reducing scans and shuffles, choosing sensible partitioning and fixing skew—not from caching everything.",
+    bullets:[
+      "Inspect the physical plan and query profile before changing configuration.",
+      "Use AQE for runtime join selection, partition coalescing and skew handling; still fix pathological keys and file layouts.",
+      "Repartition when you need a deliberate shuffle/parallelism change; coalesce when reducing partitions without a full shuffle is safe.",
+      "Cache only reused, expensive intermediate results and unpersist them; Delta/Disk cache and Spark cache solve different problems.",
+      "Prefer broadcast joins only when the smaller side is genuinely small enough for executor memory."
+    ], services:["databricks","photon_aqe","delta_lake"], source:"Packt repository Chapters 4 and 10"
+  },
+  {
+    id:"streaming", title:"Production streaming with Databricks",
+    keywords:["real time","near real time","streaming pipeline","event hubs databricks","auto loader","late data","watermark","stateful processing","checkpoint","rescued data"],
+    summary:"Use Event Hubs for event streams and Auto Loader for arriving files. Structured Streaming supplies restartable incremental processing, while watermarks bound state for late-data windows.",
+    bullets:[
+      "Give each independent Event Hubs reader its own consumer group and align partitions with required processing parallelism.",
+      "Persist checkpoints in durable storage; keep sink writes idempotent so a restart does not duplicate business results.",
+      "Use Auto Loader schema evolution deliberately and rescuedDataColumn to quarantine unexpected fields.",
+      "Choose watermarks from real lateness distributions and business tolerance; very late data may require a separate correction path.",
+      "Archive raw events/files before aggressive transformation so the pipeline can be replayed."
+    ], services:["eventhub","autoloader","structured_streaming","delta_lake","adls","databricks"], source:"Packt repository Chapter 5"
+  },
+  {
+    id:"lakeflow", title:"Lakeflow Declarative Pipelines (formerly DLT)",
+    keywords:["lakeflow","delta live tables","dlt","declarative pipeline","expectations","data quality rules","streaming table","materialized view"],
+    summary:"Declare the datasets and quality contracts; Lakeflow resolves dependencies and incrementally maintains the Bronze–Silver–Gold graph while recording pipeline and expectation metrics.",
+    bullets:[
+      "Use Auto Loader or a streaming source for Bronze and preserve ingestion metadata.",
+      "Apply expectations in Silver: fail on contract-breaking defects, drop known-invalid rows when justified, and monitor softer warnings.",
+      "Use watermarks for stateful Gold aggregations and explicit join rules for stream-to-static enrichment.",
+      "Read the pipeline event log for data-quality trends, failures and performance signals.",
+      "Keep business keys, deduplication and late-data behavior explicit even though dependencies are automatic."
+    ], services:["lakeflow_pipelines","autoloader","delta_lake","unity_catalog","system_tables"], source:"Packt repository Chapter 7"
+  },
+  {
+    id:"orchestration", title:"Orchestrating Databricks production workflows",
+    keywords:["orchestrate databricks","lakeflow jobs","databricks jobs","adf integration","airflow databricks","fan out fan in","modular notebook","task dag"],
+    summary:"Keep compute work in small testable tasks, then orchestrate it with Lakeflow Jobs, ADF or Airflow. The repository examples cover job DAGs, retries, ADF parameter passing, Airflow fan-out/fan-in and modular notebook code.",
+    bullets:[
+      "Lakeflow Jobs is the natural Databricks-native scheduler; define task dependencies, job compute, retries, alerts and SLAs.",
+      "ADF is useful when Databricks is one step in a broader Azure movement/orchestration pipeline; authenticate with managed identity.",
+      "Airflow fits cross-platform DAGs and explicit fan-out/fan-in; use callbacks, retries and data-quality branches.",
+      "Separate ingest, transform, validate and publish functions; return structured status to the orchestrator.",
+      "Make every task idempotent and safe to rerun independently."
+    ], services:["lakeflow_jobs","adf","databricks","managed_identity","system_tables"], source:"Packt repository Chapter 8"
+  },
+  {
+    id:"cicd", title:"Databricks CI/CD and infrastructure as code",
+    keywords:["ci cd","cicd","devops databricks","asset bundle","databricks.yml","terraform databricks","unit test","integration test","deploy databricks"],
+    summary:"Version notebooks/code, tests and resource definitions together. Use Asset Bundles for Databricks workloads and Terraform for account/workspace infrastructure, then promote immutable changes through environments.",
+    bullets:[
+      "Run unit tests for transformation logic and integration tests against isolated schemas/catalogs before deployment.",
+      "Validate the Asset Bundle, deploy to a dev target, run smoke tests, then promote the same commit to staging/production.",
+      "Parameterize catalogs, schemas, volumes and compute by target instead of copying project definitions.",
+      "Use Terraform for metastore, storage, external locations and connectors; review plans before apply.",
+      "Keep secrets in approved identity/secret stores and use workload identity or managed identity in CI."
+    ], services:["databricks_bundles","devops","databricks","unity_catalog","managed_identity"], source:"Packt repository Chapters 8 and 9"
+  },
+  {
+    id:"performance", title:"Databricks performance and cost optimization",
+    keywords:["optimize databricks","performance tuning","cost optimization","liquid clustering","z order","optimize table","photon","cluster cost","small files","query profile"],
+    summary:"Optimize in the right order: measure, reduce data scanned/shuffled, improve Delta file layout, use the execution engine effectively, then right-size compute and enforce cost controls.",
+    bullets:[
+      "Compact small files with OPTIMIZE and use clustering only on columns that improve real query pruning.",
+      "Use AQE and Photon where supported; inspect query profiles for scan, shuffle, spill and skew before adding cache.",
+      "Prefer autoscaling job compute with auto-termination; use spot instances only where interruption is acceptable.",
+      "Tag workloads and use system billing tables for ownership, unit cost, budgets and anomaly alerts.",
+      "Do not over-partition Delta tables or retain cached data that is not reused."
+    ], services:["photon_aqe","delta_lake","databricks","system_tables","cost"], source:"Packt repository Chapter 10"
+  },
+  {
+    id:"security", title:"Databricks security, compliance and governance",
+    keywords:["secure databricks","databricks security","row level security","column mask","pii","gdpr","hipaa","delta sharing","audit databricks","data lineage"],
+    summary:"Layer network isolation, identity, Unity Catalog privileges, fine-grained data controls, auditing and lifecycle procedures. Security is an end-to-end operating model, not one workspace setting.",
+    bullets:[
+      "Use private connectivity/VNet controls, managed identities and group-based Unity Catalog grants.",
+      "Apply row filters and column masks centrally so different groups see appropriate data without app-specific logic.",
+      "Tag sensitive columns and query audit/system tables for access investigations and control evidence.",
+      "Implement tested retention/erasure workflows for regulated data and verify downstream copies/indexes.",
+      "Use Delta Sharing for governed external sharing instead of exporting unmanaged copies."
+    ], services:["databricks","unity_catalog","entra","privatelink","system_tables","purview"], source:"Packt repository Chapter 11"
+  },
+  {
+    id:"mlai", title:"ML and generative AI on Databricks",
+    keywords:["mlflow","feature store","automl","genie","generative ai","rag databricks","vector search","ai gateway","model serving","machine learning databricks"],
+    summary:"Use MLflow for experiments/models, Feature Store for reusable inputs, AutoML for rapid baselines, Genie for governed conversational analytics, and Vector Search plus model serving/AI Gateway for production RAG.",
+    bullets:[
+      "Track parameters, metrics and artifacts in MLflow, then register approved models with governed promotion rules.",
+      "Build reusable feature tables and point-in-time correct training sets to reduce training/serving skew.",
+      "Treat AutoML output as a transparent baseline—review generated notebooks, leakage risk and evaluation metrics.",
+      "For RAG, ingest governed content, chunk/embed, sync a vector index, retrieve with filters, ground the model and evaluate answers.",
+      "Use AI Gateway controls, endpoint logs, rate limits and cost attribution around model access."
+    ], services:["mlflow","feature_store","vector_search","databricks","unity_catalog","ai_foundry"], source:"Packt repository Chapter 12"
+  },
+  {
+    id:"incremental", title:"Incremental loading and CDC",
+    keywords:["incremental","cdc","change data capture","watermark","upsert","merge into","slowly changing","scd"],
+    summary:"Incremental pipelines need a reliable change position, deterministic deduplication and idempotent target writes. Update control state only after the target commit succeeds.",
+    bullets:[
+      "Prefer a native CDC feed when inserts, updates and deletes all matter; use a high-watermark column only when its semantics are trustworthy.",
+      "Persist source offset/watermark, load an overlap window if clocks/order can drift, then deduplicate by key and change order.",
+      "MERGE into Delta with explicit matched/unmatched rules and a unique source row per target key.",
+      "Keep raw change history for replay and quarantine invalid records instead of silently discarding them.",
+      "Test restart after failure between extraction, target commit and watermark update."
+    ], services:["adf","sql","databricks","delta_lake","system_tables"], source:"Azure map + Packt repository Chapter 3"
+  },
+  {
+    id:"observability", title:"Operate and troubleshoot the platform",
+    keywords:["monitor pipeline","observability","troubleshoot","alerting","log analytics","system tables","job failure","data quality monitoring","cost monitoring"],
+    summary:"Observe data freshness, correctness, volume, latency, failures and cost together. Platform metrics alone cannot tell you whether the data product is trustworthy.",
+    bullets:[
+      "Send Azure diagnostic settings to central Log Analytics and alert through Azure Monitor action groups.",
+      "Use Databricks system tables and Lakeflow event logs for run history, billing, audits, lineage and expectation metrics.",
+      "Emit pipeline run ID, source watermark, row counts, rejected counts, target version and duration for every load.",
+      "Define freshness/volume/quality SLOs per data product and route alerts to an owning team.",
+      "Make replay and repair procedures part of the runbook before production launch."
+    ], services:["monitor","loganalytics","appinsights","system_tables","lakeflow_jobs","lakeflow_pipelines"], source:"Azure map + Packt repository Chapters 2, 7, 8 and 10"
+  }
+];
+
+function normalizeQuestion(s){
+  return String(s).toLowerCase().replace(/[^a-z0-9+#.]+/g,' ').replace(/\s+/g,' ').trim();
+}
+function scoreKnowledge(topic, question){
+  const q=normalizeQuestion(question), tokens=new Set(q.split(' ').filter(x=>x.length>2));
+  let score=0;
+  topic.keywords.forEach(k=>{
+    const nk=normalizeQuestion(k);
+    if(q.includes(nk)) score += 5 + nk.split(' ').length * 2;
+  });
+  const topicTokens=new Set(normalizeQuestion(topic.title+' '+topic.keywords.join(' ')).split(' ').filter(t=>t.length>3));
+  tokens.forEach(t=>{if(topicTokens.has(t))score+=1;});
+  return score;
+}
+function findKnowledgeTopic(question){
+  const ranked=KNOWLEDGE_TOPICS.map(topic=>({topic,score:scoreKnowledge(topic,question)})).sort((a,b)=>b.score-a.score);
+  return ranked[0] && ranked[0].score>=6 ? ranked[0].topic : null;
+}
+
+const QUESTION_STOPWORDS=new Set(['what','when','where','which','who','why','how','does','this','that','with','from','into','about','azure','databricks','show','explain','tell','please','data']);
+function rankNodesByQuestion(question){
+  const q=normalizeQuestion(question);
+  const tokens=q.split(' ').filter(t=>t.length>2&&!QUESTION_STOPWORDS.has(t));
+  return NODES.map(n=>{
+    const name=normalizeQuestion(n.name+' '+n.aliases.join(' '));
+    const detail=normalizeQuestion(n.role+' '+n.srcSink+' '+n.components.join(' ')+' '+n.patterns.join(' '));
+    let score=0;
+    n.aliases.concat([n.name]).forEach(alias=>{const a=normalizeQuestion(alias);if(a.length>3&&q.includes(a))score+=8;});
+    tokens.forEach(t=>{if(name.split(' ').includes(t))score+=4;else if(detail.split(' ').includes(t))score+=2;else if(detail.includes(t))score+=1;});
+    return {n,score};
+  }).filter(x=>x.score>=2).sort((a,b)=>b.score-a.score).slice(0,5).map(x=>x.n);
+}
+
+function findComponentConcept(question){
+  const q=normalizeQuestion(question),matches=[];
+  NODES.forEach(n=>n.components.forEach(component=>{
+    const phrase=normalizeQuestion(component.replace(/\s*\/\s*/g,' '));
+    if(phrase.length>3&&q.includes(phrase))matches.push({n,component,phraseLength:phrase.length});
+  }));
+  matches.sort((a,b)=>b.phraseLength-a.phraseLength);
+  return matches[0]||null;
+}
+
+function focusServices(ids){
+  restoreTracePositions();
+  document.getElementById('stage').classList.remove('trace-open');
+  const idxs=ids.filter(id=>idIndex[id]!==undefined).map(id=>idIndex[id]);
+  focusMode=true; traceOrderedPath=[]; pathNodeSet=new Set(idxs); pathEdgeKeys=new Set();
+  edgeData.forEach(e=>{if(pathNodeSet.has(e.a)&&pathNodeSet.has(e.b))pathEdgeKeys.add(edgeKey(e.a,e.b));});
+  NODES.forEach(n=>{n.anchor=null;n.vx=0;n.vy=0;});
+}
+
+function connectionEdgesFor(ids, maxItems=9){
+  const idxs=ids.filter(id=>idIndex[id]!==undefined).map(id=>idIndex[id]);
+  const wanted=new Set(idxs);
+  let matches=edgeData.filter(e=>wanted.has(e.a)&&wanted.has(e.b));
+  if(idxs.length===1) matches=edgeData.filter(e=>wanted.has(e.a)||wanted.has(e.b));
+  if(matches.length<Math.min(5,maxItems) && idxs.length>1){
+    const extras=edgeData.filter(e=>(wanted.has(e.a)||wanted.has(e.b))&&!matches.includes(e));
+    matches=matches.concat(extras.slice(0,Math.min(5,maxItems)-matches.length));
+  }
+  return matches.slice(0,maxItems);
+}
+
+function buildConnectionsHTML(ids, maxItems=9){
+  const connections=connectionEdgesFor(ids,maxItems);
+  if(!connections.length)return '';
+  let html='<div class="answer-connections"><p class="connections-title">How it connects to Azure + Databricks</p>';
+  connections.forEach(e=>{
+    const a=NODES[e.a],b=NODES[e.b];
+    html+=`<div class="connection-row"><button type="button" onclick="selectNodeDeep('${a.id}')">${escapeHTML(a.name)}</button><span class="connection-label">${escapeHTML(e.label)}</span><button type="button" onclick="selectNodeDeep('${b.id}')">${escapeHTML(b.name)}</button></div>`;
+  });
+  return html+'</div>';
+}
+
+function renderKnowledgeAnswer(topic){
+  document.getElementById('arch-view').classList.remove('show');
+  focusServices(topic.services);
+  let html='<span class="clear-link" onclick="clearAnswer()">clear ✕</span>';
+  html+=`<h3 class="answer-title">${escapeHTML(topic.title)}</h3>`;
+  html+=`<p class="answer-summary">${escapeHTML(topic.summary)}</p><ul>`;
+  topic.bullets.forEach(b=>{html+=`<li>${escapeHTML(b)}</li>`;});
+  html+=`</ul>${buildConnectionsHTML(topic.services)}<div class="answer-source">LOCAL SOURCE · ${escapeHTML(topic.source)}</div>`;
+  answerBox.innerHTML=html;answerBox.classList.add('show');
+}
+
+function renderServiceAnswer(n){
+  focusServices([n.id]);
+  let html='<span class="clear-link" onclick="clearAnswer()">clear ✕</span>';
+  html+=`<h3 class="answer-title">${escapeHTML(n.name)}</h3><p class="answer-summary">${escapeHTML(n.role)}</p><ul>`;
+  html+=`<li><strong>Flow role:</strong> ${escapeHTML(n.srcSink)}.</li>`;
+  html+=`<li><strong>Resilience:</strong> ${escapeHTML(n.avail)}</li>`;
+  html+=`<li><strong>Core components:</strong> ${escapeHTML(n.components.slice(0,6).join(' · '))}</li>`;
+  html+=`<li><strong>Common patterns:</strong> ${escapeHTML(n.patterns.join(' · '))}</li>`;
+  html+=`</ul>${buildConnectionsHTML([n.id],10)}<div class="answer-source">LOCAL SOURCE · Embedded Azure ecosystem map</div>`;
+  answerBox.innerHTML=html;answerBox.classList.add('show');
+  selectNodeDeep(n.id);
+}
+
+function renderComponentConceptAnswer(match){
+  const n=match.n,component=match.component;
+  const d=COMPONENT_DETAILS[component]||[
+    `${component} is part of ${n.name} and supports its ${n.role.toLowerCase()} capability.`,
+    `Use it when the architecture needs the specific capability represented by ${component}.`,
+    `Design it with least privilege, monitoring, retries and the availability limits of ${n.name}.`,
+    `Confirm current regional and SKU support before production use.`
+  ];
+  focusServices([n.id]);
+  let html='<span class="clear-link" onclick="clearAnswer()">clear ✕</span>';
+  html+=`<h3 class="answer-title">${escapeHTML(component)}</h3><p class="answer-summary">A component of ${escapeHTML(n.name)}. ${escapeHTML(d[0])}</p><ul>`;
+  html+=`<li><strong>What it does:</strong> ${escapeHTML(d[0])}</li><li><strong>When to use it:</strong> ${escapeHTML(d[1])}</li><li><strong>Design:</strong> ${escapeHTML(d[2])}</li><li><strong>Watch out:</strong> ${escapeHTML(d[3])}</li></ul>`;
+  html+=`${buildConnectionsHTML([n.id],10)}<div class="answer-source">LOCAL SOURCE · ${escapeHTML(n.name)} component knowledge</div>`;
+  answerBox.innerHTML=html;answerBox.classList.add('show');
+  selectNodeDeep(n.id);
+}
+
+function renderRelatedAnswer(nodes, question){
+  const ids=nodes.map(n=>n.id);
+  focusServices(ids);
+  let html='<span class="clear-link" onclick="clearAnswer()">clear ✕</span>';
+  html+=`<h3 class="answer-title">${escapeHTML(question)}</h3><p class="answer-summary">The closest embedded Azure and Databricks concepts are below. Their live connections are highlighted on the map.</p><ul>`;
+  nodes.slice(0,5).forEach(n=>{
+    html+=`<li><strong>${escapeHTML(n.name)}:</strong> ${escapeHTML(n.role)} Key pieces: ${escapeHTML(n.components.slice(0,4).join(' · '))}.</li>`;
+  });
+  html+=`</ul>${buildConnectionsHTML(ids,10)}<div class="answer-source">LOCAL SOURCE · Embedded Azure + Databricks knowledge graph</div>`;
+  answerBox.innerHTML=html;answerBox.classList.add('show');
+}
+
+function findNode(id){ return NODES[idIndex[id]]; }
+function escapeHTML(s){ return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+
+function showComponent(serviceId, component){
+  const n=findNode(serviceId);
+  const d=COMPONENT_DETAILS[component] || [
+    `${component} is a component/activity of ${n.name}. It participates in the service's data, control or security plane.`,
+    `Use it when the architecture needs the capability represented by this component.`,
+    `Design for least privilege, retries and the service's supported redundancy options; validate regional/tier constraints for production.`,
+    `Do not treat a component name as a guarantee of a specific SLA or feature in every region/tier. Verify the selected SKU and region.`
+  ];
+  document.getElementById('component-service').textContent=n.name;
+  document.getElementById('component-title').textContent=component;
+  document.getElementById('component-body').textContent=d[0];
+  document.getElementById('component-does').textContent=d[0];
+  document.getElementById('component-use').textContent=d[1];
+  document.getElementById('component-design').textContent=d[2];
+  document.getElementById('component-gotcha').textContent=d[3];
+  const m=document.getElementById('component-modal'); m.style.display='flex'; m.setAttribute('aria-hidden','false');
+}
+function closeComponent(){const m=document.getElementById('component-modal');m.style.display='none';m.setAttribute('aria-hidden','true');}
+document.getElementById('component-close').onclick=closeComponent;
+document.getElementById('component-modal').onclick=e=>{if(e.target.id==='component-modal')closeComponent();};
+
+function selectNodeDeep(id){
+  selectedNode=id;
+  const n=findNode(id), cat=CATEGORIES[n.cat] || CATEGORIES.storage;
+  document.getElementById('p-cat').textContent=cat.label;
+  document.getElementById('p-cat').style.background=cat.color+'22';
+  document.getElementById('p-cat').style.color=cat.color;
+  document.getElementById('p-title').textContent=n.name;
+  document.getElementById('p-role').textContent=n.role;
+  document.getElementById('p-srcsink').textContent=n.srcSink;
+  document.getElementById('p-avail').textContent=n.avail;
+  const ce=document.getElementById('p-components'); ce.innerHTML='';
+  n.components.forEach(c=>{
+    const li=document.createElement('li'); li.className='component-item'; li.textContent=c;
+    const hint=document.createElement('span');hint.className='hint';hint.textContent='DETAIL';li.appendChild(hint);
+    li.onclick=()=>showComponent(id,c);ce.appendChild(li);
+  });
+  const pe=document.getElementById('p-patterns'); pe.innerHTML='';
+  n.patterns.forEach(x=>{const li=document.createElement('li');li.textContent=x;pe.appendChild(li);});
+  const linksEl=document.getElementById('p-links');linksEl.innerHTML='';
+  adjacency[idIndex[id]].forEach((label,ni)=>{
+    const neighbor=NODES[ni],li=document.createElement('li');
+    li.innerHTML=`<span class="arrow">→</span> ${escapeHTML(neighbor.name)} <span class="lbl">${escapeHTML(label)}</span>`;
+    li.onclick=()=>selectNodeDeep(neighbor.id);linksEl.appendChild(li);
+  });
+  panel.classList.add('open');
+}
+selectNode=selectNodeDeep;
+
+function openTraceNode(id){
+  document.getElementById('arch-view').classList.remove('show');
+  clearFocus();
+  selectNodeDeep(id);
+}
+
+function renderPathInDrawer(pathIdxs, question){
+  clearFocus(); closePanel();
+  arrangePath(pathIdxs);
+  answerBox.classList.remove('show'); answerBox.innerHTML='';
+  const view=document.getElementById('arch-view');
+  view.querySelector('.arch-kicker').textContent='STRAIGHT-LINE TRACE';
+  const first=NODES[pathIdxs[0]],last=NODES[pathIdxs[pathIdxs.length-1]];
+  document.getElementById('arch-title').textContent=`${first.name} → ${last.name}`;
+  document.getElementById('arch-summary').textContent=`${question} The highlighted nodes are arranged left-to-right in execution order; the rest of the floating map stays fixed.`;
+  const flow=document.getElementById('arch-flow');flow.innerHTML='<div class="flow-track"></div>';
+  const track=flow.firstChild;
+  pathIdxs.forEach((idx,i)=>{
+    const n=NODES[idx];
+    if(i){const ar=document.createElement('div');ar.className='flow-arrow';ar.textContent='→';track.appendChild(ar);}
+    const via=i?adjacency[pathIdxs[i-1]].get(idx)||'Connects':'Start';
+    const card=document.createElement('div');card.className='flow-card';
+    card.innerHTML=`<span class="num">${String(i+1).padStart(2,'0')}</span><strong>${escapeHTML(n.name)}</strong><span>${escapeHTML(via)}<br>${escapeHTML(n.role)}</span>`;
+    card.onclick=()=>openTraceNode(n.id);track.appendChild(card);
+  });
+  document.getElementById('arch-layers').innerHTML='';
+  document.getElementById('stage').classList.add('trace-open');
+  view.classList.add('show');
+}
+
+function renderArchitecture(pattern){
+  clearFocus();
+  const ids=pattern.services.filter(id=>idIndex[id]!==undefined);
+  const path=pattern.steps.map(s=>s[0]).filter((id,i,a)=>idIndex[id]!==undefined && (i===0||id!==a[i-1]));
+  const actualPath=path.length ? path.map(id=>idIndex[id]) : ids.map(id=>idIndex[id]);
+  if(actualPath){arrangePath(actualPath);}
+  answerBox.classList.remove('show');answerBox.innerHTML='';
+  const view=document.getElementById('arch-view');
+  view.querySelector('.arch-kicker').textContent='ARCHITECTURE TRACE';
+  document.getElementById('arch-title').textContent=pattern.title;
+  document.getElementById('arch-summary').textContent=pattern.summary;
+  const flow=document.getElementById('arch-flow');flow.innerHTML='<div class="flow-track"></div>';
+  const track=flow.firstChild;
+  pattern.steps.forEach((s,i)=>{
+    const n=findNode(s[0]); if(!n)return;
+    if(i) {const ar=document.createElement('div');ar.className='flow-arrow';ar.textContent='→';track.appendChild(ar);}
+    const card=document.createElement('div');card.className='flow-card';
+    card.innerHTML=`<span class="num">0${i+1}</span><strong>${escapeHTML(n.name)}</strong><span>${escapeHTML(s[1])}<br>${escapeHTML(s[2])}</span>`;
+    card.onclick=()=>openTraceNode(n.id);track.appendChild(card);
+  });
+  const layers=document.getElementById('arch-layers');
+  layers.innerHTML=pattern.medallion?`<div class="layer-wrap"><div class="layer-title">MEDALLION DATA CONTRACT</div><div class="layers">
+    <div class="layer bronze"><b>🥉 BRONZE — raw</b><p>Source-shaped, append-friendly, replayable. Keep ingestion metadata and preserve history.</p></div>
+    <div class="layer silver"><b>🥈 SILVER — conformed</b><p>Validated, deduplicated, standardized and joined. Apply quality rules and business keys.</p></div>
+    <div class="layer gold"><b>🥇 GOLD — business</b><p>Curated facts/dimensions, aggregates and trusted metrics ready for serving and BI.</p></div>
+  </div></div>`:'';
+  document.getElementById('stage').classList.add('trace-open');
+  view.classList.add('show');
+}
+document.getElementById('arch-close').onclick=()=>{
+  // Keep the ordered route pinned so closing the drawer reveals the full map.
+  document.getElementById('arch-view').classList.remove('show');
+};
+document.getElementById('trace-details').onclick=()=>{
+  closePanel();
+  document.getElementById('answer-box').classList.remove('show');
+  document.getElementById('arch-view').classList.add('show');
+};
+document.getElementById('trace-clear').onclick=()=>{
+  document.getElementById('arch-view').classList.remove('show');
+  clearFocus();
+};
+
+function matchPattern(q){
+  const s=q.toLowerCase();
+  if((s.includes('compare')||s.includes('difference')||s.includes('versus')||s.includes(' vs ')) &&
+     s.includes('synapse') && s.includes('databricks')) return ARCH_PATTERNS.compare;
+  if((s.includes('on-prem')||s.includes('on prem')||s.includes('private network')||s.includes('private network of')) &&
+     (s.includes('adls')||s.includes('data lake'))) return ARCH_PATTERNS.privateAdls;
+  if(s.includes('medallion') || (s.includes('bronze')&&s.includes('silver')&&s.includes('gold'))) return ARCH_PATTERNS.medallion;
+  if((s.includes('event hubs')||s.includes('event hub')) && s.includes('power bi')) return ARCH_PATTERNS.realtime;
+  if(s.includes('metadata') && (s.includes('synapse')||s.includes('data factory')||s.includes('adf'))) return ARCH_PATTERNS.metadata;
+  if((s.includes('4')||s.includes('four')) && (s.includes('network')||s.includes('vnet'))) return ARCH_PATTERNS.networks;
+  if((s.includes('rag')||s.includes('retrieval augmented')) && (s.includes('adls')||s.includes('data lake'))) return ARCH_PATTERNS.rag;
+  return null;
+}
+
+function localExplain(q){
+  const matched=matchNodesInText(q);
+  const words=q.toLowerCase();
+  if(matched.length>=2){
+    const path=buildFullPath(matched);
+    if(path)return {type:'path',path};
+  }
+  const component=findComponentConcept(q);
+  if(component&&(words.includes('what')||words.includes('explain')||words.includes('does')||words.includes('component')))return {type:'component',match:component};
+  if(matched.length===1){
+    const n=findNode(matched[0]);
+    return {type:'service',n};
+  }
+  if(words.includes('what is')||words.includes('explain')||words.includes('tell me about')){
+    const hits=NODES.filter(n=>words.includes(n.name.toLowerCase())||n.aliases.some(a=>words.includes(a)));
+    if(hits.length)return {type:'service',n:hits[0]};
+  }
+  const related=rankNodesByQuestion(q);
+  if(related.length>=2){
+    if(words.includes('connect')||words.includes('flow')||words.includes('travel')||words.includes('move')||words.includes('from')){
+      const path=buildFullPath([related[0].id,related[1].id]);
+      if(path)return {type:'path',path};
+    }
+    return {type:'related',nodes:related};
+  }
+  if(related.length===1)return {type:'service',n:related[0]};
+  if(words.includes('how')||words.includes('architecture')||words.includes('design')||words.includes('bring')||words.includes('move')){
+    return {type:'generic'};
+  }
+  return {type:'generic'};
+}
+
+function renderLocalGeneric(q){
+  document.getElementById('arch-view').classList.remove('show');
+  const topic=findKnowledgeTopic(q);
+  if(topic){renderKnowledgeAnswer(topic);return;}
+  const l=localExplain(q);
+  if(l.type==='path'){renderPathInDrawer(l.path,q);return;}
+  if(l.type==='component'){renderComponentConceptAnswer(l.match);return;}
+  if(l.type==='service'){renderServiceAnswer(l.n);return;}
+  if(l.type==='related'){renderRelatedAnswer(l.nodes,q);return;}
+  const baselineIds=["adf","adls","databricks","synapse","powerbi","entra","monitor"];
+  focusServices(baselineIds);
+  let html='<span class="clear-link" onclick="clearAnswer()">clear ✕</span>';
+  html+='<h3 class="answer-title">A safe default Azure data architecture</h3>';
+  html+='<p class="answer-summary">I could not map that wording to one precise embedded topic, so here is the local design baseline. Add a named source, destination or Databricks concept for a more specific trace.</p>';
+  html+='<ul><li><strong>Ingest:</strong> Data Factory for batch/private sources; Event Hubs for event streams.</li>';
+  html+='<li><strong>Store:</strong> land replayable Bronze data in ADLS, then use governed Delta tables.</li>';
+  html+='<li><strong>Transform:</strong> Databricks or Synapse with explicit quality, keys and incremental state.</li>';
+  html+='<li><strong>Serve:</strong> publish Gold data through SQL endpoints/warehouses and Power BI semantic models.</li>';
+  html+='<li><strong>Operate:</strong> managed identity, private networking, governance, lineage, alerts and cost ownership from day one.</li></ul>';
+  html+=buildConnectionsHTML(baselineIds,9);
+  html+='<div class="answer-source">LOCAL SOURCE · Embedded Azure map + '+escapeHTML(PACKT_SOURCE)+'</div>';
+  answerBox.innerHTML=html;answerBox.classList.add('show');
+}
+
+async function askModelDeep(question){
+  // Deliberately local: never send the question, service graph or user data away.
+  renderLocalGeneric(question);
+}
+
+function handleQueryDeep(text){
+  if(!text.trim())return;
+  const pattern=matchPattern(text);
+  if(pattern){closePanel();renderArchitecture(pattern);return;}
+  const topic=findKnowledgeTopic(text);
+  if(topic){closePanel();renderKnowledgeAnswer(topic);return;}
+  const result=localExplain(text);
+  if(result.type==='path'){renderPathInDrawer(result.path,text);return;}
+  if(result.type==='component'){document.getElementById('arch-view').classList.remove('show');renderComponentConceptAnswer(result.match);return;}
+  if(result.type==='service'){document.getElementById('arch-view').classList.remove('show');renderServiceAnswer(result.n);return;}
+  if(result.type==='related'){document.getElementById('arch-view').classList.remove('show');closePanel();renderRelatedAnswer(result.nodes,text);return;}
+  askModelDeep(text);
+}
+handleQuery=handleQueryDeep;
+
+// Rebuild starter chips so the expanded question engine is demonstrated.
+chipsEl.innerHTML='';
+SAMPLE_QUESTIONS.forEach(q=>{const c=document.createElement('div');c.className='chip';c.textContent=q;c.onclick=()=>{document.getElementById('ask-input').value=q;handleQueryDeep(q)};chipsEl.appendChild(c);});
+
+</script>
+</body>
+</html>

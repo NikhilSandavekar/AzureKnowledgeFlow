@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#060a14">
+  <meta name="description" content="Explore how Microsoft Azure and Azure Databricks services connect, with local answers and visual architecture traces.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Azure + Databricks Living Map">
+  <meta property="og:description" content="Explore services. Trace architectures. Learn offline.">
+  <meta property="og:image" content="og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <title>Azure + Databricks Living Map</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+    *{box-sizing:border-box}
+    html,body,main{width:100%;height:100%;min-height:100dvh;margin:0;overflow:hidden;background:#060a14;color-scheme:dark}
+    iframe{display:block;width:100%;height:100%;min-height:100dvh;border:0;background:#060a14}
+    nav{position:fixed;left:max(12px,env(safe-area-inset-left));bottom:max(12px,env(safe-area-inset-bottom));z-index:50;display:flex;gap:7px}
+    button{min-height:36px;border:1px solid #263759;border-radius:999px;padding:7px 12px;background:rgb(10 17 34 / 92%);color:#dce5f8;box-shadow:0 10px 28px rgb(0 0 0 / 36%);font:600 11px ui-monospace,SFMono-Regular,Menlo,monospace;cursor:pointer;backdrop-filter:blur(12px)}
+    button:hover,button:focus-visible{border-color:#6580b8;color:#fff;outline:none}
+    #install{display:none;border-color:#315a5b;color:#79dcc6}
+    #notice{position:fixed;left:50%;bottom:max(58px,calc(58px + env(safe-area-inset-bottom)));z-index:51;display:none;margin:0;transform:translateX(-50%);border:1px solid #315a5b;border-radius:999px;padding:7px 12px;background:#0e1a2d;color:#79dcc6;font:600 11px ui-monospace,SFMono-Regular,Menlo,monospace}
+    @media(max-width:700px){button{min-height:34px;padding:6px 10px;font-size:10px}}
+  </style>
+</head>
+<body>
+  <main>
+    <iframe src="azure-ecosystem-offline.html" title="Azure and Databricks Living Map" allow="clipboard-write"></iframe>
+    <nav aria-label="App actions">
+      <button id="install" type="button"><span aria-hidden="true">↓</span> Install</button>
+      <button id="share" type="button"><span aria-hidden="true">↗</span> Share</button>
+    </nav>
+    <p id="notice" role="status">Link copied</p>
+  </main>
+  <script>
+    let installPrompt=null;
+    const installButton=document.getElementById('install');
+    const shareButton=document.getElementById('share');
+    const notice=document.getElementById('notice');
+
+    if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+    window.addEventListener('beforeinstallprompt',event=>{
+      event.preventDefault();installPrompt=event;installButton.style.display='inline-block';
+    });
+    installButton.addEventListener('click',async()=>{
+      if(!installPrompt)return;await installPrompt.prompt();await installPrompt.userChoice;
+      installPrompt=null;installButton.style.display='none';
+    });
+    shareButton.addEventListener('click',async()=>{
+      const data={title:'Azure + Databricks Living Map',text:'Explore how Azure and Databricks services connect with visual architecture traces.',url:location.href};
+      try{
+        if(navigator.share){await navigator.share(data);}
+        else{await navigator.clipboard.writeText(location.href);notice.style.display='block';setTimeout(()=>notice.style.display='none',1800);}
+      }catch{}
+    });
+  </script>
+</body>
+</html>

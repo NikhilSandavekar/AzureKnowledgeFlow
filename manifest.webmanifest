@@ -1,0 +1,16 @@
+{
+  "name": "Azure + Databricks Living Map",
+  "short_name": "Azure Map",
+  "description": "Explore Azure and Databricks services, local answers and visual architecture traces.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#060a14",
+  "theme_color": "#060a14",
+  "categories": ["education", "productivity", "utilities"],
+  "icons": [
+    {"src":"icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}
