@@ -1,4 +1,4 @@
-const CACHE='azure-databricks-map-v1';
+const CACHE='azure-databricks-map-v2';
 const ROOT=new URL('./',self.registration.scope).href;
 const FILES=['./','./index.html','./azure-ecosystem-offline.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./og.png'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES)));self.skipWaiting();});
@@ -11,3 +11,4 @@ self.addEventListener('fetch',event=>{
   }
   event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{if(response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(request,copy));}return response;})));
 });
+
