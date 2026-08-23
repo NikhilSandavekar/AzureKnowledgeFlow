@@ -2577,7 +2577,6 @@ const particles = edgeData.map(e => ({
 --------------------------------------------------------------- */
 let hoverNode = null;
 let selectedNode = null;
-const MOBILE_CORE_LABELS = new Set(['integration_services','databricks','adls','adf','eventhub','unity_catalog','entra','powerbi','purview','synapse']);
 function nodeColor(n) { return CATEGORIES[n.cat].color; }
 function edgeKey(a, b) { return a < b ? a + '-' + b : b + '-' + a; }
 
@@ -2659,7 +2658,7 @@ function draw() {
     ctx.globalAlpha = 1;
 
     const isHovered=hoverNode===n;
-    const labelPriority=isSelected?100:(isHovered?95:(onPath?90:(!focusMode&&MOBILE_CORE_LABELS.has(n.id)?60:10)));
+    const labelPriority=isSelected?100:(isHovered?95:(onPath?90:10));
     if(W>=700||labelPriority>10)labelCandidates.push({n,dim,priority:labelPriority});
 
     if (onPath) {
@@ -2681,7 +2680,7 @@ function draw() {
     const y=n.y+n.r+(W<700?13:16);
     const box={left:n.x-width/2,right:n.x+width/2,top:y-fontSize,bottom:y+(lines.length-1)*(fontSize+2)+5};
     const collides=placedLabels.some(other=>!(box.right+4<other.left||box.left-4>other.right||box.bottom+3<other.top||box.top-3>other.bottom));
-    if(collides&&item.priority<90)return;
+    if(collides&&item.priority<95)return;
     ctx.textAlign='center';
     ctx.fillStyle=item.dim?'rgba(120,130,155,0.45)':'#eef2fb';
     lines.forEach((line,i)=>ctx.fillText(line,n.x,y+i*(fontSize+2)));
@@ -2888,7 +2887,7 @@ function arrangePath(pathIdxs) {
   // Only traced nodes move. The rest of the floating map remains exactly where it was.
   const left = 72;
   const viewportRight = Math.max(left + 100, W - (W > 900 ? 430 : 58));
-  const minimumSpacing = W <= 700 ? 112 : 132;
+  const minimumSpacing = W <= 700 ? 150 : 160;
   const right = Math.max(viewportRight,left + Math.max(100,(ordered.length-1)*minimumSpacing));
   const y = W <= 700
     ? Math.max(265, Math.min(H * 0.42, H - 220))
