@@ -41,7 +41,7 @@
 
   #stage { position: relative; width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; }
 
-  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
   canvas.dragging { cursor: grabbing; }
 
   header {
@@ -320,7 +320,7 @@
 
   <div id="legend"></div>
   <button id="motion-toggle" type="button" aria-pressed="false" title="Pause or resume the floating map">◌ gentle motion</button>
-  <div id="hint">trace arranges the route left → right · the background stays fixed · click a node for deep detail</div>
+  <div id="hint">trace arranges the route left → right · drag empty space to pan the map · click a node for deep detail</div>
   <div id="trace-toolbar" aria-label="Trace controls">
     <button id="trace-details" type="button">Trace details</button>
     <button id="trace-clear" type="button">Clear trace</button>
@@ -2384,13 +2384,14 @@ const canvas = document.getElementById('cv');
 const ctx = canvas.getContext('2d');
 let W, H, DPR;
 let layoutReady = false;
+let viewOffsetX = 0, viewOffsetY = 0;
 
 function resize() {
   DPR = Math.min(window.devicePixelRatio || 1, 2);
   W = canvas.clientWidth; H = canvas.clientHeight;
   canvas.width = W * DPR; canvas.height = H * DPR;
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  if (layoutReady) initPositions();
+  if (layoutReady) { viewOffsetX = 0; viewOffsetY = 0; initPositions(); }
 }
 window.addEventListener('resize', resize);
 
@@ -2497,6 +2498,8 @@ function edgeKey(a, b) { return a < b ? a + '-' + b : b + '-' + a; }
 
 function draw() {
   ctx.clearRect(0, 0, W, H);
+  ctx.save();
+  ctx.translate(viewOffsetX, viewOffsetY);
 
   edgeData.forEach(e => {
     const a = NODES[e.a], b = NODES[e.b];
@@ -2584,6 +2587,7 @@ function draw() {
       ctx.fillText(String(order + 1), n.x + n.r - 6, n.y - n.r + 9.5);
     }
   });
+  ctx.restore();
 }
 
 function wrapLabel(text, x, y) {
@@ -2600,12 +2604,24 @@ function loop() { step(); draw(); requestAnimationFrame(loop); }
    INTERACTION — drag & click
 --------------------------------------------------------------- */
 let dragNode = null, dragOffset = { x: 0, y: 0 }, pointerDownPos = null;
-function getPos(e) {
+let panCanvas = false, panStartScreen = null, panStartOffset = null;
+function getScreenPos(e, useChanged=false) {
   const rect = canvas.getBoundingClientRect();
-  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  const touchList = useChanged ? e.changedTouches : e.touches;
+  const point = touchList && touchList.length ? touchList[0] : e;
+  const clientX = point.clientX, clientY = point.clientY;
   return { x: clientX - rect.left, y: clientY - rect.top };
 }
+function getPos(e) {
+  const screen = getScreenPos(e);
+  return { x: screen.x - viewOffsetX, y: screen.y - viewOffsetY };
+}
+function setViewOffset(x,y) {
+  const maxX=Math.max(650,W*2.5), maxY=Math.max(350,H*.75);
+  viewOffsetX=Math.max(-maxX,Math.min(maxX,x));
+  viewOffsetY=Math.max(-maxY,Math.min(maxY,y));
+}
+function resetView(){viewOffsetX=0;viewOffsetY=0;}
 function nodeAt(pos) {
   for (let i = NODES.length - 1; i >= 0; i--) {
     const n = NODES[i];
@@ -2615,42 +2631,52 @@ function nodeAt(pos) {
   return null;
 }
 canvas.addEventListener('mousedown', e => {
-  const pos = getPos(e); pointerDownPos = pos;
+  const screen=getScreenPos(e), pos = getPos(e); pointerDownPos = screen;
   const n = nodeAt(pos);
-  if (n) { dragNode = n; n.dragging = true; n.anchor = null; dragOffset = { x: n.x - pos.x, y: n.y - pos.y }; canvas.classList.add('dragging'); }
+  if (n) { dragNode = n; n.dragging = true; n.anchor = null; dragOffset = { x: n.x - pos.x, y: n.y - pos.y }; }
+  else { panCanvas=true; panStartScreen=screen; panStartOffset={x:viewOffsetX,y:viewOffsetY}; }
+  canvas.classList.add('dragging');
 });
 window.addEventListener('mousemove', e => {
   const pos = getPos(e);
   if (dragNode) { dragNode.x = pos.x + dragOffset.x; dragNode.y = pos.y + dragOffset.y; }
+  else if (panCanvas) { const screen=getScreenPos(e); setViewOffset(panStartOffset.x+screen.x-panStartScreen.x,panStartOffset.y+screen.y-panStartScreen.y); }
   else { hoverNode = nodeAt(pos); canvas.style.cursor = hoverNode ? 'pointer' : 'grab'; }
 });
 window.addEventListener('mouseup', e => {
+  if (panCanvas) { panCanvas=false; panStartScreen=null; panStartOffset=null; canvas.classList.remove('dragging'); return; }
   if (dragNode) {
     dragNode.dragging = false;
-    const pos = getPos(e);
-    const moved = pointerDownPos && Math.hypot(pos.x - pointerDownPos.x, pos.y - pointerDownPos.y) > 6;
+    const screen = getScreenPos(e);
+    const moved = pointerDownPos && Math.hypot(screen.x - pointerDownPos.x, screen.y - pointerDownPos.y) > 6;
     if (!moved) selectNode(dragNode.id);
     dragNode = null; canvas.classList.remove('dragging');
   }
 });
+canvas.addEventListener('dblclick',()=>resetView());
 canvas.addEventListener('touchstart', e => {
-  const pos = getPos(e); pointerDownPos = pos;
+  const screen=getScreenPos(e), pos = getPos(e); pointerDownPos = screen;
   const n = nodeAt(pos);
   if (n) { dragNode = n; n.dragging = true; n.anchor = null; dragOffset = { x: n.x - pos.x, y: n.y - pos.y }; }
-}, { passive: true });
+  else { panCanvas=true; panStartScreen=screen; panStartOffset={x:viewOffsetX,y:viewOffsetY}; }
+  canvas.classList.add('dragging');
+}, { passive: false });
 canvas.addEventListener('touchmove', e => {
+  if (!dragNode && !panCanvas) return;
+  e.preventDefault();
   if (dragNode) { const pos = getPos(e); dragNode.x = pos.x + dragOffset.x; dragNode.y = pos.y + dragOffset.y; }
-}, { passive: true });
+  else { const screen=getScreenPos(e); setViewOffset(panStartOffset.x+screen.x-panStartScreen.x,panStartOffset.y+screen.y-panStartScreen.y); }
+}, { passive: false });
 canvas.addEventListener('touchend', e => {
+  if (panCanvas) { panCanvas=false; panStartScreen=null; panStartOffset=null; canvas.classList.remove('dragging'); return; }
   if (!dragNode) return;
   const tappedNode = dragNode;
-  const rect = canvas.getBoundingClientRect();
-  const touch = e.changedTouches && e.changedTouches[0];
-  const end = touch ? { x: touch.clientX - rect.left, y: touch.clientY - rect.top } : pointerDownPos;
+  const end = getScreenPos(e,true);
   const moved = pointerDownPos && end && Math.hypot(end.x - pointerDownPos.x, end.y - pointerDownPos.y) > 8;
-  tappedNode.dragging = false; dragNode = null;
+  tappedNode.dragging = false; dragNode = null; canvas.classList.remove('dragging');
   if (!moved) selectNode(tappedNode.id);
-}, { passive: true });
+}, { passive: false });
+canvas.addEventListener('touchcancel',()=>{if(dragNode)dragNode.dragging=false;dragNode=null;panCanvas=false;canvas.classList.remove('dragging');},{passive:true});
 
 /* ---------------------------------------------------------------
    DETAIL PANEL
@@ -2748,6 +2774,7 @@ function buildFullPath(waypointIds) {
 
 function arrangePath(pathIdxs) {
   restoreTracePositions();
+  resetView();
   const ordered=[]; const seen=new Set();
   pathIdxs.forEach(idx=>{if(!seen.has(idx)){seen.add(idx);ordered.push(idx);}});
   focusMode = true;
@@ -2757,8 +2784,12 @@ function arrangePath(pathIdxs) {
   for (let i = 0; i < ordered.length - 1; i++) pathEdgeKeys.add(edgeKey(ordered[i], ordered[i + 1]));
   // Only traced nodes move. The rest of the floating map remains exactly where it was.
   const left = 72;
-  const right = Math.max(left + 100, W - (W > 900 ? 430 : 58));
-  const y = Math.max(300, Math.min(H - 145, H * 0.54));
+  const right = W <= 700
+    ? left + Math.max(100,(ordered.length-1)*112)
+    : Math.max(left + 100, W - (W > 900 ? 430 : 58));
+  const y = W <= 700
+    ? Math.max(265, Math.min(H * 0.42, H - 220))
+    : Math.max(300, Math.min(H - 145, H * 0.54));
   const spacing = ordered.length > 1 ? (right - left) / (ordered.length - 1) : 0;
   ordered.forEach((idx, i) => {
     const node = NODES[idx];
@@ -3341,6 +3372,7 @@ function focusServices(ids){
   restoreTracePositions();
   document.getElementById('stage').classList.remove('trace-open');
   const idxs=ids.filter(id=>idIndex[id]!==undefined).map(id=>idIndex[id]);
+  if(idxs.length>1){arrangePath(idxs);return;}
   focusMode=true; traceOrderedPath=[]; pathNodeSet=new Set(idxs); pathEdgeKeys=new Set();
   edgeData.forEach(e=>{if(pathNodeSet.has(e.a)&&pathNodeSet.has(e.b))pathEdgeKeys.add(edgeKey(e.a,e.b));});
   NODES.forEach(n=>{n.anchor=null;n.vx=0;n.vy=0;});
