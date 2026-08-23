@@ -1,4 +1,4 @@
-const CACHE='azure-databricks-map-v6';
+const CACHE='azure-databricks-map-v7';
 const ROOT=new URL('./',self.registration.scope).href;
 const FILES=['./','./index.html','./azure-ecosystem-offline.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./og.png'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES)));self.skipWaiting();});
