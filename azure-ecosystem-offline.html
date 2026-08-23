@@ -2474,6 +2474,7 @@ const ctx = canvas.getContext('2d');
 let W, H, DPR;
 let layoutReady = false;
 let viewOffsetX = 0, viewOffsetY = 0;
+let stableLabelSlots = new Map();
 
 function resize() {
   DPR = Math.min(window.devicePixelRatio || 1, 2);
@@ -2485,6 +2486,7 @@ function resize() {
 window.addEventListener('resize', resize);
 
 function initPositions() {
+  stableLabelSlots.clear();
   const left = 42, right = Math.max(180, W - 44);
   const top = Math.min(Math.max(150, H * 0.18), H - 180), bottom = Math.max(top + 120, H - 58);
   const cx = (left + right) / 2, cy = (top + bottom) / 2;
@@ -2759,20 +2761,32 @@ function draw() {
     const viewLeft=-viewOffsetX+4,viewRight=-viewOffsetX+W-4;
     const viewTop=-viewOffsetY+(W<700?205:90),viewBottom=-viewOffsetY+H-8;
     let chosen=null;
-    for(const placement of placements){
+    const stableKey=`${W<700?'mobile':'desktop'}:${n.id}`;
+    const keepStable=!focusMode&&item.priority<95;
+    const makeChoice=(slot)=>{
+      const placement=placements[slot];
+      const box={left:placement.x-width/2,right:placement.x+width/2,top:placement.y-fontSize,bottom:placement.y-fontSize+labelHeight};
+      return {...placement,slot,box};
+    };
+    if(keepStable&&stableLabelSlots.has(stableKey)){
+      const savedSlot=stableLabelSlots.get(stableKey);
+      if(savedSlot>=0)chosen=makeChoice(savedSlot);
+    }else for(const [slot,placement] of placements.entries()){
       const box={left:placement.x-width/2,right:placement.x+width/2,top:placement.y-fontSize,bottom:placement.y-fontSize+labelHeight};
       const outside=box.left<viewLeft||box.right>viewRight||box.top<viewTop||box.bottom>viewBottom;
       const collides=placedLabels.some(other=>overlaps(box,other))||nodeBoxes.some(other=>overlaps(box,other));
-      if(!outside&&!collides){chosen={...placement,box};break;}
+      if(!outside&&!collides){chosen={...placement,slot,box};break;}
     }
     if(!chosen&&item.priority>=95){
       const placement=placements[0];
-      chosen={...placement,box:{left:placement.x-width/2,right:placement.x+width/2,top:placement.y-fontSize,bottom:placement.y-fontSize+labelHeight}};
+      chosen={...placement,slot:0,box:{left:placement.x-width/2,right:placement.x+width/2,top:placement.y-fontSize,bottom:placement.y-fontSize+labelHeight}};
     }
+    if(keepStable&&!stableLabelSlots.has(stableKey))stableLabelSlots.set(stableKey,chosen?chosen.slot:-1);
     if(!chosen)return;
     ctx.textAlign='center';
     ctx.fillStyle=item.dim?'rgba(120,130,155,0.45)':'#eef2fb';
-    lines.forEach((line,i)=>ctx.fillText(line,chosen.x,chosen.y+i*lineHeight));
+    const drawX=Math.round(chosen.x),drawY=Math.round(chosen.y);
+    lines.forEach((line,i)=>ctx.fillText(line,drawX,Math.round(drawY+i*lineHeight)));
     placedLabels.push(chosen.box);
   });
   ctx.restore();
@@ -3006,6 +3020,7 @@ function restoreTracePositions() {
 function clearFocus() {
   restoreTracePositions();
   focusMode = false; pathNodeSet = new Set(); pathEdgeKeys = new Set(); traceOrderedPath = [];
+  stableLabelSlots.clear();
   NODES.forEach(n => { n.anchor = null; n.vx = 0; n.vy = 0; });
   document.getElementById('stage').classList.remove('trace-open','drawer-open');
 }
