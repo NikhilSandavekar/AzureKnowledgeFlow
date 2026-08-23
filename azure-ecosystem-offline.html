@@ -111,6 +111,24 @@
   }
   .chip:hover { color: var(--ink-0); border-color: #3d5486; }
 
+  #case-study-heading {
+    margin: 1px 2px 0; color: #f0b45c;
+    font: 700 8.5px var(--mono); letter-spacing: .13em; text-transform: uppercase;
+  }
+  #case-studies {
+    display: flex; flex-wrap: nowrap; gap: 6px; margin-top: 5px;
+    overflow-x: auto; padding: 1px 1px 6px; scrollbar-width: thin;
+    scrollbar-color: #503c27 transparent;
+  }
+  .case-chip {
+    display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto;
+    border: 1px solid rgba(240,168,72,.35); border-radius: 20px;
+    background: rgba(35,25,22,.72); color: #f1d3a6;
+    padding: 5px 10px; cursor: pointer; font: 700 10px var(--mono);
+  }
+  .case-chip::before { content: '◇'; color: #f0a848; }
+  .case-chip:hover { color: #fff2de; border-color: #f0a848; background: rgba(60,39,22,.82); }
+
   #answer-box {
     position: fixed; top: 0; right: 0; width: 390px; max-width: 92vw;
     height: 100%; height: 100dvh; margin: 0;
@@ -262,6 +280,9 @@
     #local-status { margin-top: 5px; }
     #chips { margin-top: 5px; gap: 5px; }
     .chip { font-size: 9.5px; padding: 5px 9px; }
+    #case-study-heading { font-size: 7.5px; }
+    #case-studies { margin-top: 4px; gap: 5px; }
+    .case-chip { font-size: 9px; padding: 5px 9px; }
     #hint { display: none; }
     #motion-toggle { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); font-size: 9px; }
     #layout-toggle { right: 12px; bottom: calc(48px + env(safe-area-inset-bottom)); font-size: 9px; }
@@ -277,6 +298,8 @@
 #arch-view.show{display:block}
 .arch-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}.arch-kicker,.component-kicker{font:600 9px var(--mono);letter-spacing:.16em;color:var(--ink-2);text-transform:uppercase}.arch-head h3{margin:3px 0 0;font-size:16px}.arch-head button,#component-close{border:1px solid var(--line);background:transparent;color:var(--ink-1);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:18px}.arch-head button:hover,#component-close:hover{color:var(--ink-0);border-color:#4a5d8d}
 #arch-summary{color:#b7c3df;font-size:12px;line-height:1.55;margin:12px 0 15px}.flow-track{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:4px 1px 12px}.flow-card{min-width:0;border:1px solid #293858;background:#101a32;border-radius:11px;padding:11px;cursor:pointer}.flow-card:hover{border-color:#5f79ad;transform:translateX(-2px)}.flow-card .num{font:700 9px var(--mono);color:#f0a848}.flow-card strong{display:block;font-size:12px;margin:4px 0}.flow-card span{font-size:10.5px;color:var(--ink-1);line-height:1.45}.flow-arrow{align-self:center;color:#6e7da3;font:700 14px var(--mono);transform:rotate(90deg);height:16px}
+.case-notice{margin:0 0 12px;padding:9px 10px;border:1px solid rgba(240,168,72,.3);border-radius:9px;background:rgba(52,35,20,.42);color:#dfc49a;font:9.5px/1.5 var(--mono)}
+.case-lens{border-top:1px solid var(--line);padding-top:12px;margin-top:4px}.case-lens h4{margin:0 0 8px;color:var(--ink-2);font:600 9px var(--mono);letter-spacing:.14em;text-transform:uppercase}.case-lens ul{margin:0;padding-left:18px;color:#c5cfe5;font-size:11px;line-height:1.55}.case-lens li{margin:5px 0}.case-source{margin-top:11px;color:var(--ink-2);font:9px/1.5 var(--mono)}.case-source a{color:#8fb6ff;text-decoration:none}.case-source a:hover{text-decoration:underline}
 .layer-wrap{border-top:1px solid var(--line);padding-top:12px;margin-top:4px}.layer-title{font:600 9px var(--mono);letter-spacing:.14em;color:var(--ink-2);text-transform:uppercase;margin-bottom:8px}.layers{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.layer{padding:11px;border-radius:10px;border:1px solid #263453;background:#0d162b}.layer b{display:block;font-size:12px;margin-bottom:5px}.layer p{margin:0;font-size:10.5px;color:var(--ink-1);line-height:1.4}.layer.bronze{border-top:2px solid #b97843}.layer.silver{border-top:2px solid #aeb8c7}.layer.gold{border-top:2px solid #e6cf66}
 .component-item{cursor:pointer!important;border:1px solid transparent;border-radius:7px;padding:7px 8px!important;margin:2px 0}.component-item:hover{background:#15213d;border-color:#2b3e65}.component-item:before{content:'›'!important;left:7px!important;color:#6e82ad!important}.component-item .hint{float:right;color:#56678e;font:9px var(--mono)}
 #component-modal{position:fixed;inset:0;background:rgba(2,5,12,.65);z-index:30;display:none;align-items:center;justify-content:center;padding:20px}.component-card{width:min(700px,94vw);max-height:86vh;overflow:auto;background:linear-gradient(180deg,#121d38,#0c1428);border:1px solid #304263;border-radius:16px;padding:24px;box-shadow:0 30px 100px rgba(0,0,0,.6);position:relative}.component-card #component-close{position:absolute;right:16px;top:16px}.component-card h3{font-size:22px;margin:6px 40px 8px 0}.component-card>p{color:#bdc8e1;font-size:13px;line-height:1.55;max-width:620px}.component-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}.component-grid>div{border:1px solid var(--line);border-radius:10px;padding:12px}.component-grid .component-wide{grid-column:1/-1}.component-grid span{font:600 9px var(--mono);letter-spacing:.12em;color:var(--ink-2)}.component-grid p{font-size:11.5px;line-height:1.5;color:#c5cfe5;margin:7px 0 0}
@@ -327,6 +350,8 @@
     </form>
     <div id="local-status"><span class="offline">● OFFLINE KNOWLEDGE</span></div>
     <div id="chips"></div>
+    <div id="case-study-heading">CASE STUDIES · REFERENCE ADAPTATIONS</div>
+    <div id="case-studies" aria-label="Enterprise and industry case studies"></div>
     <div id="answer-box"></div>
   </div>
 
@@ -2709,18 +2734,34 @@ function draw() {
   ctx.save();
   ctx.translate(viewOffsetX, viewOffsetY);
   const labelCandidates=[];
+  const selectedConnections=[];
 
   edgeData.forEach(e => {
     const a = NODES[e.a], b = NODES[e.b];
     const onPath = pathEdgeKeys.has(edgeKey(e.a, e.b));
     if (focusMode && !onPath) return;
-    const dimBySelection = selectedNode && !(a.id === selectedNode || b.id === selectedNode);
+    const connectedToSelection = selectedNode && (a.id === selectedNode || b.id === selectedNode);
+    if (connectedToSelection && !focusMode && !onPath) { selectedConnections.push(e); return; }
+    const dimBySelection = selectedNode && !connectedToSelection;
     const dim = focusMode ? !onPath : dimBySelection;
     ctx.beginPath();
     ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
-    ctx.strokeStyle = onPath ? 'rgba(240,168,72,0.82)' : (dim ? 'rgba(60,72,105,0.06)' : 'rgba(120,138,180,0.11)');
-    ctx.lineWidth = onPath ? 2.4 : (dim ? 1 : 1.3);
+    ctx.strokeStyle = onPath ? 'rgba(240,168,72,0.88)' : (dim ? 'rgba(60,72,105,0.025)' : 'rgba(120,138,180,0.11)');
+    ctx.lineWidth = onPath ? 2.8 : (dim ? .75 : 1.3);
     ctx.stroke();
+  });
+
+  // Selected relationships are painted last so they remain unmistakable even
+  // in the densest part of the graph. The broad glow gives contrast while the
+  // crisp inner stroke preserves the exact endpoints.
+  selectedConnections.forEach(e => {
+    const a=NODES[e.a], b=NODES[e.b];
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+    ctx.strokeStyle='rgba(38,112,238,.35)'; ctx.lineWidth=9;
+    ctx.shadowBlur=16; ctx.shadowColor='rgba(79,154,255,.9)'; ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+    ctx.strokeStyle='rgba(137,205,255,.98)'; ctx.lineWidth=3.2; ctx.stroke();
   });
 
   // The trace line is drawn independently of the background graph so an
@@ -2741,14 +2782,15 @@ function draw() {
     p.t += spd;
     if (p.t > 1) p.t = 0;
     const a = NODES[p.edge.a], b = NODES[p.edge.b];
-    const dimBySelection = selectedNode && !(a.id === selectedNode || b.id === selectedNode);
+    const connectedToSelection = selectedNode && (a.id === selectedNode || b.id === selectedNode);
+    const dimBySelection = selectedNode && !connectedToSelection;
     const dim = focusMode ? !onPath : dimBySelection;
     const x = a.x + (b.x - a.x) * p.t, y = a.y + (b.y - a.y) * p.t;
     ctx.beginPath();
-    ctx.arc(x, y, onPath ? p.size + 1 : p.size, 0, Math.PI * 2);
-    ctx.fillStyle = onPath ? '#f0a848' : (dim ? 'rgba(120,138,180,0.12)' : nodeColor(a));
+    ctx.arc(x, y, onPath ? p.size + 1 : (connectedToSelection ? p.size + .9 : p.size), 0, Math.PI * 2);
+    ctx.fillStyle = onPath ? '#f0a848' : (connectedToSelection ? '#8ad0ff' : (dim ? 'rgba(120,138,180,0.08)' : nodeColor(a)));
     ctx.shadowBlur = dim && !onPath ? 0 : 7;
-    ctx.shadowColor = onPath ? '#f0a848' : nodeColor(a);
+    ctx.shadowColor = onPath ? '#f0a848' : (connectedToSelection ? '#4f9aff' : nodeColor(a));
     ctx.fill();
     ctx.shadowBlur = 0;
   });
@@ -3244,6 +3286,151 @@ const ARCH_PATTERNS = {
     medallion:false
   }
 };
+
+const CASE_STUDIES = [
+  {
+    id:"mobility", label:"Uber-style mobility", query:"Case study: Uber-style real-time mobility, ETA and dispatch analytics",
+    title:"Mobility marketplace — live trips, ETA & operations",
+    summary:"An Azure + Databricks reference adaptation for a global mobility marketplace: ingest rider, driver and location events; handle late data; preserve replayable history; create real-time features; score operational models; and publish trusted marketplace KPIs.",
+    services:["eventhub","structured_streaming","delta_lake","feature_store","ml","apim","powerbi"],
+    steps:[
+      ["eventhub","Trip + location events","Partition high-volume rider, driver and GPS events by a stable key; retain schema, event time and trace identifiers."],
+      ["structured_streaming","Event-time processing","Apply watermarks, deduplication, stateful joins and checkpointing so late and out-of-order events remain manageable."],
+      ["delta_lake","Replayable lakehouse","Keep raw history in Bronze, conformed trips in Silver and marketplace metrics in Gold Delta tables."],
+      ["feature_store","Consistent model features","Publish reusable demand, supply, location and recent-behaviour features for both training and online scoring."],
+      ["ml","ETA, dispatch and risk models","Train and deploy models for ETA, matching, demand forecasting or fraud signals with measured latency and drift."],
+      ["apim","Operational API boundary","Expose scored results through governed, throttled APIs instead of coupling applications directly to model endpoints."],
+      ["powerbi","Marketplace operations","Monitor demand/supply balance, cancellations, service levels and model outcomes by market and time window."]
+    ],
+    lenses:["Separate the seconds-level dispatch path from the minutes-level analytics path, while keeping one replayable history.","Design for duplicate events, late arrivals, hot partitions, model fallback and regional failure.","Tokenize personal identifiers, minimize precise-location retention and audit access to sensitive trip data."],
+    sources:[{label:"Uber Engineering — production-ready Kappa architecture",url:"https://www.uber.com/us/en/blog/kappa-architecture-data-stream-processing/"}],
+    medallion:false, caseStudy:true
+  },
+  {
+    id:"streaming_media", label:"Netflix-style streaming", query:"Case study: Netflix-style streaming recommendations and content analytics",
+    title:"Streaming media — recommendations & content intelligence",
+    summary:"An Azure + Databricks reference adaptation for a streaming-media platform: unify playback and impression events, build governed audience features, train and evaluate recommenders, serve low-latency results and measure content performance.",
+    services:["eventhub","structured_streaming","delta_lake","feature_store","mlflow","ml","apim","powerbi"],
+    steps:[
+      ["eventhub","Playback + impression events","Capture play, pause, search, impression and quality-of-experience events with stable member, session and title identifiers."],
+      ["structured_streaming","Sessionize behavior","Use event-time windows to form sessions, deduplicate retries and calculate fresh engagement signals."],
+      ["delta_lake","Audience + title history","Maintain replayable events, conformed member/title interactions and curated content-performance tables."],
+      ["feature_store","Reusable recommendation features","Keep training and serving definitions aligned for recency, affinity, popularity and contextual features."],
+      ["mlflow","Experiment + govern","Track datasets, parameters, metrics, artifacts and approvals across ranking-model experiments."],
+      ["ml","Train and score","Train candidate-generation and ranking models; validate relevance, diversity, bias, latency and fallback behavior."],
+      ["apim","Recommendation service","Place authentication, throttling and versioned contracts in front of online recommendation endpoints."],
+      ["powerbi","Content intelligence","Measure engagement, completion, discovery and quality-of-experience without mixing operational and executive metrics."]
+    ],
+    lenses:["Use streaming for fresh behavior, batch for large retraining/backfills, and identical feature definitions across both paths.","Protect experiments with holdouts, guardrail metrics, model rollback and a non-personalized fallback.","Treat consent, retention and regional data boundaries as data-product requirements, not afterthoughts."],
+    sources:[{label:"Netflix TechBlog — Data Engineering stack and reliable pipelines",url:"https://netflixtechblog.com/our-first-netflix-data-engineering-summit-f326b0589102"}],
+    medallion:false, caseStudy:true
+  },
+  {
+    id:"banking", label:"Bank fraud detection", query:"Case study: banking real-time fraud detection and investigation",
+    title:"Banking — real-time fraud detection",
+    summary:"A regulated banking pattern that scores transaction events in near real time, preserves an auditable decision record and gives investigators governed access to alerts and supporting evidence.",
+    services:["eventhub","structured_streaming","databricks","delta_lake","feature_store","ml","cosmos","powerbi"],
+    steps:[
+      ["eventhub","Transaction stream","Ingest authorization, account and device events with immutable transaction IDs and schema contracts."],
+      ["structured_streaming","Validate + enrich","Deduplicate, apply event-time rules and join reference/risk signals without silently dropping late events."],
+      ["databricks","Rule + feature pipeline","Combine deterministic controls with engineered behavioral features and data-quality expectations."],
+      ["delta_lake","Auditable evidence","Store raw inputs, feature snapshots, scores, rules fired and final decisions for replay and investigation."],
+      ["feature_store","Point-in-time features","Prevent training leakage and keep online account/device features consistent with historical training data."],
+      ["ml","Risk scoring","Deploy a calibrated model with threshold, reason codes, drift monitoring and a safe rules-only fallback."],
+      ["cosmos","Low-latency alert state","Maintain active cases, recent entity state and idempotent workflow status for operational applications."],
+      ["powerbi","Investigation + oversight","Track alert precision, losses avoided, queue aging, model drift and control effectiveness."]
+    ],
+    lenses:["Keep the customer authorization decision path small; enrich asynchronously when a dependency is not essential.","Encrypt and tokenize regulated fields, use managed identities, private endpoints and separation of duties.","Record the model/rule version and feature values behind every decision so an investigator can reproduce it."],
+    medallion:false, caseStudy:true
+  },
+  {
+    id:"retail", label:"Retail personalization", query:"Case study: omnichannel retail personalization and inventory analytics",
+    title:"Retail — omnichannel customer & inventory intelligence",
+    summary:"Combine batch product, order and inventory data with live clickstream events to create governed customer and product views, timely recommendations and trustworthy stock and margin reporting.",
+    services:["adf","eventhub","adls","autoloader","databricks","delta_lake","synapse","powerbi"],
+    steps:[
+      ["adf","Enterprise batch sources","Incrementally copy ERP, CRM, supplier and store data with watermarks and reconciliation totals."],
+      ["eventhub","Digital behavior","Capture web/app views, carts and campaign interactions without blocking the customer journey."],
+      ["adls","Bronze landing","Preserve source-shaped files and events with arrival date, source ID and schema version."],
+      ["autoloader","Incremental discovery","Ingest arriving files with schema tracking and checkpoints instead of repeatedly listing the whole lake."],
+      ["databricks","Conform entities","Resolve products, customers, stores and orders; quarantine invalid records and publish quality metrics."],
+      ["delta_lake","Trusted data products","Create customer 360, inventory position, demand and promotion-performance tables with controlled history."],
+      ["synapse","Serving marts","Expose curated inventory, finance and merchandising views with workload-aware SQL serving."],
+      ["powerbi","Decision layer","Publish governed semantic measures for availability, sell-through, margin, conversion and campaign lift."]
+    ],
+    lenses:["Separate identity resolution from consent and activation; a matched customer is not automatically marketable.","Reconcile stock movement to source systems and state freshness prominently for operational users.","Partition and optimize around actual query patterns instead of mirroring the source-system table layout."],
+    medallion:true, caseStudy:true
+  },
+  {
+    id:"healthcare", label:"Healthcare analytics", query:"Case study: healthcare interoperability, governed lakehouse and patient analytics",
+    title:"Healthcare — interoperable, governed patient analytics",
+    summary:"A healthcare reference pattern that receives clinical and operational messages, validates and stores source fidelity, creates privacy-controlled longitudinal data products and serves approved analytical use cases.",
+    services:["apim","servicebus","adls","databricks","delta_lake","purview","synapse","powerbi"],
+    steps:[
+      ["apim","Interoperability boundary","Authenticate, version and throttle FHIR or partner APIs while logging correlation IDs without leaking clinical payloads."],
+      ["servicebus","Reliable workflow messages","Decouple admissions, results, scheduling and downstream processing with retries and dead-letter handling."],
+      ["adls","Source-fidelity landing","Retain encrypted source records and ingestion metadata under explicit retention and access policies."],
+      ["databricks","Validate + standardize","Validate schemas/codes, deduplicate updates and build patient, encounter and clinical-event representations."],
+      ["delta_lake","Longitudinal products","Maintain governed, reproducible tables for care, operations, population health and approved research cohorts."],
+      ["purview","Catalog + lineage","Classify sensitive fields, record ownership and trace approved datasets back to sources and transformations."],
+      ["synapse","Controlled analytical access","Serve approved de-identified or role-filtered views without exposing raw clinical zones."],
+      ["powerbi","Clinical + operational insights","Publish certified metrics with row-level security, freshness labels and clear clinical-use limitations."]
+    ],
+    lenses:["Default to least privilege, private connectivity, field-level sensitivity and auditable break-glass access.","Preserve source meaning and terminology versions; do not collapse clinical updates into an unauditable current-state table.","Separate analytical decision support from medical-device or direct-care control paths that require different assurance."],
+    medallion:true, caseStudy:true
+  },
+  {
+    id:"manufacturing", label:"Predictive maintenance", query:"Case study: manufacturing IoT predictive maintenance",
+    title:"Manufacturing — IoT predictive maintenance",
+    summary:"Stream equipment telemetry into a replayable lakehouse, combine it with maintenance and asset history, detect anomalies, score failure risk and turn results into operational actions and reliability KPIs.",
+    services:["iothub","eventhub","structured_streaming","databricks","delta_lake","ml","powerbi"],
+    steps:[
+      ["iothub","Device ingress","Authenticate devices, manage identities and receive telemetry without embedding shared secrets in equipment."],
+      ["eventhub","Scalable event backbone","Partition by equipment/site and isolate independent consumers with consumer groups."],
+      ["structured_streaming","Condition windows","Clean sensor noise, handle late events and calculate rolling vibration, temperature and pressure features."],
+      ["databricks","Join asset context","Combine telemetry with work orders, operating state, equipment hierarchy and failure labels."],
+      ["delta_lake","Reliability history","Retain raw telemetry, conformed events and curated asset-health tables for replay and model training."],
+      ["ml","Anomaly + failure scoring","Score anomaly or remaining-useful-life models with thresholds, drift checks and maintenance feedback."],
+      ["powerbi","Plant reliability","Show asset health, alert precision, downtime, mean time between failures and maintenance outcomes."]
+    ],
+    lenses:["Keep safety interlocks at the edge/industrial-control layer; cloud analytics should not replace deterministic protection.","Buffer through network loss and make event IDs/checkpoints support safe replay.","Close the learning loop by recording technician findings and replaced components, not only model alerts."],
+    medallion:false, caseStudy:true
+  },
+  {
+    id:"airline", label:"Airline operations", query:"Case study: airline operations and disruption analytics",
+    title:"Airline — operations & disruption recovery",
+    summary:"Unify live flight events with schedules, crew, aircraft, weather and customer data to publish a consistent operational picture and support disruption analysis without turning analytics into an unsafe control system.",
+    services:["eventhub","adf","adls","databricks","delta_lake","synapse","powerbi"],
+    steps:[
+      ["eventhub","Live operational events","Capture flight movement, gate, baggage and turnaround events with flight-leg and correlation identifiers."],
+      ["adf","Reference + partner feeds","Incrementally ingest schedules, crew, aircraft, maintenance and external data with explicit SLAs."],
+      ["adls","Replayable landing","Preserve each source and amendment so late partner updates can be reconstructed."],
+      ["databricks","Operational conformance","Resolve flight legs, airports, aircraft and event timelines; flag contradictions and stale feeds."],
+      ["delta_lake","Operational data products","Publish trusted flight status, turnaround, connection risk and disruption-impact tables."],
+      ["synapse","Planning + serving","Expose curated history and scenario-ready marts for analysts and operational applications."],
+      ["powerbi","Network control view","Display punctuality, connection risk, turnaround milestones and data freshness with drill-through."]
+    ],
+    lenses:["Use event time and amendment history; arrival order is not business order.","Show freshness and confidence per feed so users can distinguish missing data from a real operational state.","Keep human approval and certified operational systems in the loop for safety- or regulatory-critical decisions."],
+    medallion:false, caseStudy:true
+  },
+  {
+    id:"telecom", label:"Telecom network", query:"Case study: telecom network quality and churn analytics",
+    title:"Telecom — network quality & customer retention",
+    summary:"Combine high-volume network telemetry with customer, plan and service history to detect degradation, prioritize interventions and create governed churn and experience insights.",
+    services:["eventhub","structured_streaming","adls","databricks","feature_store","ml","powerbi"],
+    steps:[
+      ["eventhub","Network + usage events","Ingest cell, device, session and service events with region-aware partitioning and schema contracts."],
+      ["structured_streaming","Quality windows","Calculate rolling latency, drops, throughput and outage signals while handling delayed telemetry."],
+      ["adls","Raw retention","Keep compressed, lifecycle-managed raw telemetry for replay, incident review and model retraining."],
+      ["databricks","Customer + network joins","Aggregate high-cardinality events before joining governed subscriber and service context."],
+      ["feature_store","Experience features","Publish reusable coverage, incident, care-contact and usage features with point-in-time correctness."],
+      ["ml","Anomaly + churn models","Score network anomalies and retention risk with explainability, drift monitoring and intervention controls."],
+      ["powerbi","Service assurance","Track affected customers, incident impact, SLA trends, intervention outcomes and model precision."]
+    ],
+    lenses:["Aggregate and tokenize early to reduce sensitive-location exposure and control data volume.","Separate network alarms from customer-impact estimates; both have different latency and accuracy requirements.","Measure whether an intervention helped, not just whether a model produced a high score."],
+    medallion:false, caseStudy:true
+  }
+];
 
 const COMPONENT_DETAILS = {
   "Logic Apps workflows":["Logic Apps provides low-code, stateful or stateless workflows that orchestrate calls across applications, data and services through managed and built-in connectors.","Use it for business-process orchestration, SaaS integration, approvals and message-driven workflows where connector coverage and visible workflow state reduce custom code.","Choose Consumption or Standard hosting from networking, isolation and throughput requirements. Make actions idempotent, define retry and timeout policies, secure connections with managed identity, and route failures for investigation.","Logic Apps is an orchestrator, not a high-volume analytical processing engine. Keep large transformations in Data Factory, Databricks or another data engine and pass references rather than huge payloads through every action."],
@@ -3800,9 +3987,14 @@ function renderArchitecture(pattern){
   if(actualPath){arrangePath(actualPath);}
   answerBox.classList.remove('show');answerBox.innerHTML='';
   const view=document.getElementById('arch-view');
-  view.querySelector('.arch-kicker').textContent='ARCHITECTURE TRACE';
+  view.querySelector('.arch-kicker').textContent=pattern.caseStudy?'CASE STUDY · AZURE REFERENCE ADAPTATION':'ARCHITECTURE TRACE';
   document.getElementById('arch-title').textContent=pattern.title;
-  document.getElementById('arch-summary').textContent=pattern.summary;
+  const summaryEl=document.getElementById('arch-summary');
+  if(pattern.caseStudy){
+    summaryEl.innerHTML=`<div>${escapeHTML(pattern.summary)}</div><div class="case-notice">REFERENCE ADAPTATION · The business problem is inspired by public enterprise/industry material. This is an educational Azure + Databricks design, not a claim that the named company uses every service shown.</div>`;
+  }else{
+    summaryEl.textContent=pattern.summary;
+  }
   const flow=document.getElementById('arch-flow');flow.innerHTML='<div class="flow-track"></div>';
   const track=flow.firstChild;
   pattern.steps.forEach((s,i)=>{
@@ -3813,11 +4005,18 @@ function renderArchitecture(pattern){
     card.onclick=()=>openTraceNode(n.id);track.appendChild(card);
   });
   const layers=document.getElementById('arch-layers');
-  layers.innerHTML=pattern.medallion?`<div class="layer-wrap"><div class="layer-title">MEDALLION DATA CONTRACT</div><div class="layers">
+  let layersHTML=pattern.medallion?`<div class="layer-wrap"><div class="layer-title">MEDALLION DATA CONTRACT</div><div class="layers">
     <div class="layer bronze"><b>🥉 BRONZE — raw</b><p>Source-shaped, append-friendly, replayable. Keep ingestion metadata and preserve history.</p></div>
     <div class="layer silver"><b>🥈 SILVER — conformed</b><p>Validated, deduplicated, standardized and joined. Apply quality rules and business keys.</p></div>
     <div class="layer gold"><b>🥇 GOLD — business</b><p>Curated facts/dimensions, aggregates and trusted metrics ready for serving and BI.</p></div>
   </div></div>`:'';
+  if(pattern.caseStudy){
+    layersHTML+=`<div class="case-lens"><h4>Enterprise design lens</h4><ul>${pattern.lenses.map(x=>`<li>${escapeHTML(x)}</li>`).join('')}</ul></div>`;
+    if(pattern.sources&&pattern.sources.length){
+      layersHTML+=`<div class="case-source">PUBLIC PROBLEM INSPIRATION · ${pattern.sources.map(s=>`<a href="${escapeHTML(s.url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(s.label)}</a>`).join(' · ')}</div>`;
+    }
+  }
+  layers.innerHTML=layersHTML;
   document.getElementById('stage').classList.add('trace-open','drawer-open');
   view.classList.add('show');
 }
@@ -3849,6 +4048,19 @@ function matchPattern(q){
   if(s.includes('metadata') && (s.includes('synapse')||s.includes('data factory')||s.includes('adf'))) return ARCH_PATTERNS.metadata;
   if((s.includes('4')||s.includes('four')) && (s.includes('network')||s.includes('vnet'))) return ARCH_PATTERNS.networks;
   if((s.includes('rag')||s.includes('retrieval augmented')) && (s.includes('adls')||s.includes('data lake'))) return ARCH_PATTERNS.rag;
+  return null;
+}
+
+function matchCaseStudy(q){
+  const s=normalizeQuestion(q);
+  if(s.includes('uber') || (s.includes('mobility')&&(s.includes('eta')||s.includes('dispatch')))) return CASE_STUDIES.find(c=>c.id==='mobility');
+  if(s.includes('netflix') || s.includes('streaming media') || s.includes('content recommendation')) return CASE_STUDIES.find(c=>c.id==='streaming_media');
+  if((s.includes('bank')||s.includes('banking')) && s.includes('fraud')) return CASE_STUDIES.find(c=>c.id==='banking');
+  if(s.includes('retail') || s.includes('omnichannel') || s.includes('inventory analytics')) return CASE_STUDIES.find(c=>c.id==='retail');
+  if(s.includes('healthcare') || s.includes('patient analytics') || s.includes('fhir')) return CASE_STUDIES.find(c=>c.id==='healthcare');
+  if(s.includes('manufacturing') || s.includes('predictive maintenance')) return CASE_STUDIES.find(c=>c.id==='manufacturing');
+  if(s.includes('airline') || s.includes('flight disruption')) return CASE_STUDIES.find(c=>c.id==='airline');
+  if(s.includes('telecom') || s.includes('network quality') || s.includes('churn analytics')) return CASE_STUDIES.find(c=>c.id==='telecom');
   return null;
 }
 
@@ -3915,6 +4127,8 @@ async function askModelDeep(question){
 
 function handleQueryDeep(text){
   if(!text.trim())return;
+  const caseStudy=matchCaseStudy(text);
+  if(caseStudy){closePanel();renderArchitecture(caseStudy);return;}
   const pattern=matchPattern(text);
   if(pattern){closePanel();renderArchitecture(pattern);return;}
   const topic=findKnowledgeTopic(text);
@@ -3931,6 +4145,15 @@ handleQuery=handleQueryDeep;
 // Rebuild starter chips so the expanded question engine is demonstrated.
 chipsEl.innerHTML='';
 SAMPLE_QUESTIONS.forEach(q=>{const c=document.createElement('div');c.className='chip';c.textContent=q;c.onclick=()=>{document.getElementById('ask-input').value=q;handleQueryDeep(q)};chipsEl.appendChild(c);});
+
+const caseStudiesEl=document.getElementById('case-studies');
+CASE_STUDIES.forEach(study=>{
+  const button=document.createElement('button');
+  button.type='button';button.className='case-chip';button.textContent=study.label;
+  button.setAttribute('aria-label',`Open case study: ${study.title}`);
+  button.onclick=()=>{document.getElementById('ask-input').value=study.query;closePanel();renderArchitecture(study);};
+  caseStudiesEl.appendChild(button);
+});
 
 </script>
 </body>
