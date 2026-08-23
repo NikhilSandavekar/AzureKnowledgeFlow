@@ -24,7 +24,8 @@
     *{box-sizing:border-box}
     html,body,main{width:100%;height:100%;min-height:100dvh;margin:0;overflow:hidden;background:#060a14;color-scheme:dark}
     iframe{display:block;width:100%;height:100%;min-height:100dvh;border:0;background:#060a14}
-    nav{position:fixed;left:max(12px,env(safe-area-inset-left));bottom:max(12px,env(safe-area-inset-bottom));z-index:50;display:flex;gap:7px}
+    nav{position:fixed;left:max(12px,env(safe-area-inset-left));bottom:max(12px,env(safe-area-inset-bottom));z-index:50;display:flex;gap:7px;transition:opacity .2s ease,transform .2s ease}
+    nav.detail-open{opacity:0;transform:translateY(12px);pointer-events:none}
     button{min-height:36px;border:1px solid #263759;border-radius:999px;padding:7px 12px;background:rgb(10 17 34 / 92%);color:#dce5f8;box-shadow:0 10px 28px rgb(0 0 0 / 36%);font:600 11px ui-monospace,SFMono-Regular,Menlo,monospace;cursor:pointer;backdrop-filter:blur(12px)}
     button:hover,button:focus-visible{border-color:#6580b8;color:#fff;outline:none}
     #install{display:none;border-color:#315a5b;color:#79dcc6}
@@ -34,7 +35,7 @@
 </head>
 <body>
   <main>
-    <iframe src="azure-ecosystem-offline.html" title="Azure and Databricks Living Map" allow="clipboard-write"></iframe>
+    <iframe id="app-frame" src="azure-ecosystem-offline.html" title="Azure and Databricks Living Map" allow="clipboard-write"></iframe>
     <nav aria-label="App actions">
       <button id="install" type="button"><span aria-hidden="true">↓</span> Install</button>
       <button id="share" type="button"><span aria-hidden="true">↗</span> Share</button>
@@ -46,6 +47,22 @@
     const installButton=document.getElementById('install');
     const shareButton=document.getElementById('share');
     const notice=document.getElementById('notice');
+    const appFrame=document.getElementById('app-frame');
+    const appNav=document.querySelector('nav');
+
+    appFrame.addEventListener('load',()=>{
+      try{
+        const doc=appFrame.contentDocument;
+        const watched=['answer-box','panel','arch-view','component-modal'].map(id=>doc.getElementById(id)).filter(Boolean);
+        const sync=()=>{
+          const open=watched.some(el=>el.classList.contains('show')||el.classList.contains('open')||el.getAttribute('aria-hidden')==='false');
+          appNav.classList.toggle('detail-open',open);
+        };
+        const observer=new MutationObserver(sync);
+        watched.forEach(el=>observer.observe(el,{attributes:true,attributeFilter:['class','style','aria-hidden']}));
+        sync();
+      }catch{}
+    });
 
     if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
     window.addEventListener('beforeinstallprompt',event=>{
