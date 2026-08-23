@@ -220,13 +220,14 @@
     position: absolute; bottom: 22px; right: 32px; font-family: var(--mono);
     font-size: 10px; color: var(--ink-2); z-index: 5; text-align: right; line-height: 1.5;
   }
-  #motion-toggle {
+  #motion-toggle, #layout-toggle {
     position: absolute; right: 28px; bottom: 52px; z-index: 7;
     border: 1px solid var(--line); border-radius: 999px; background: rgba(15,24,48,.84);
     color: var(--ink-1); padding: 6px 10px; cursor: pointer; font: 10px var(--mono);
     backdrop-filter: blur(10px);
   }
-  #motion-toggle:hover { color: var(--ink-0); border-color: #3d5486; }
+  #layout-toggle { bottom: 86px; }
+  #motion-toggle:hover, #layout-toggle:hover { color: var(--ink-0); border-color: #3d5486; }
   #motion-toggle[aria-pressed="true"] { color: #6fd6bd; border-color: #315a5b; }
 
   #trace-toolbar {
@@ -263,6 +264,7 @@
     .chip { font-size: 9.5px; padding: 5px 9px; }
     #hint { display: none; }
     #motion-toggle { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); font-size: 9px; }
+    #layout-toggle { right: 12px; bottom: calc(48px + env(safe-area-inset-bottom)); font-size: 9px; }
     #answer-box .connection-row { grid-template-columns: minmax(72px,1fr) auto minmax(72px,1fr); gap: 5px; }
     #answer-box .connection-row button { padding: 7px 6px; font-size: 10px; }
     #answer-box .connection-label { font-size: 8px; max-width: 88px; }
@@ -291,10 +293,15 @@
   #trace-toolbar{bottom:calc(50dvh + 10px + env(safe-area-inset-bottom))}
   #motion-toggle{bottom:calc(12px + env(safe-area-inset-bottom))}
   #stage.trace-open #motion-toggle,
+  #stage.trace-open #layout-toggle,
   #stage:has(#answer-box.show) #motion-toggle,
+  #stage:has(#answer-box.show) #layout-toggle,
   #stage:has(#panel.open) #motion-toggle,
+  #stage:has(#panel.open) #layout-toggle,
   #stage:has(#arch-view.show) #motion-toggle,
-  #stage:has(#component-modal[aria-hidden="false"]) #motion-toggle{display:none}
+  #stage:has(#arch-view.show) #layout-toggle,
+  #stage:has(#component-modal[aria-hidden="false"]) #motion-toggle,
+  #stage:has(#component-modal[aria-hidden="false"]) #layout-toggle{display:none}
   #component-modal{align-items:flex-end;justify-content:center;padding:0;background:rgba(2,5,12,.38)}
   .component-card{width:100%;max-width:none;max-height:52dvh;padding:42px 16px calc(18px + env(safe-area-inset-bottom));border-radius:18px 18px 0 0;border-bottom:0}
   .component-card h3{font-size:19px}
@@ -324,6 +331,7 @@
   </div>
 
   <div id="legend"></div>
+  <button id="layout-toggle" type="button" aria-pressed="false" title="Switch between desktop constellation and mobile grid layouts">✦ desktop map</button>
   <button id="motion-toggle" type="button" aria-pressed="false" title="Pause or resume the floating map">◌ gentle motion</button>
   <div id="hint">trace arranges the route left → right · drag empty space to pan the map · click a node for deep detail</div>
   <div id="trace-toolbar" aria-label="Trace controls">
@@ -2475,6 +2483,9 @@ let W, H, DPR;
 let layoutReady = false;
 let viewOffsetX = 0, viewOffsetY = 0;
 let worldBounds = { left: 0, top: 0, right: 0, bottom: 0 };
+let forcedLayoutMode = null;
+function automaticLayoutMode() { return W < 900 ? 'mobile' : 'desktop'; }
+function effectiveLayoutMode() { return forcedLayoutMode || automaticLayoutMode(); }
 
 function resize() {
   DPR = Math.min(window.devicePixelRatio || 1, 2);
@@ -2485,32 +2496,91 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 
-function initPositions() {
-  const mobile = W < 700;
-  const columns = mobile ? 4 : Math.max(6, Math.min(10, Math.floor((W - 70) / 128)));
-  const cellWidth = mobile ? 107 : Math.max(122, (W - 90) / columns);
-  const cellHeight = mobile ? 86 : 88;
-  const left = mobile ? 42 : 56;
-  const top = mobile ? 220 : Math.max(155, H * 0.18);
-  NODES.forEach((n, i) => {
-    // Each service owns a stable cell. Icons can drift gently inside the cell,
-    // while labels remain fixed and therefore never collide or flicker.
-    const column = i % columns;
-    const row = Math.floor(i / columns);
-    n.homeX = left + column * cellWidth;
-    n.homeY = top + row * cellHeight;
-    n.x = n.homeX; n.y = n.homeY;
-    n.vx = 0; n.vy = 0; n.r = W < 700 ? 17 : (NODES.length > 58 ? 19 : 24);
-    n.anchor = null;
+function assignDesktopLabelPlacements(cx, cy, layoutWidth, layoutHeight) {
+  const fontSize = 10.5, lineHeight = 12.5;
+  const iconBoxes = NODES.map(n => ({
+    left:n.homeX-26,right:n.homeX+26,top:n.homeY-26,bottom:n.homeY+26
+  }));
+  const placed = [];
+  const overlaps = (a,b) => !(a.right+5<b.left||a.left-5>b.right||a.bottom+4<b.top||a.top-4>b.bottom);
+  const order = NODES.map((n,i)=>i).sort((a,b) =>
+    Math.hypot(NODES[b].homeX-cx,NODES[b].homeY-cy)-Math.hypot(NODES[a].homeX-cx,NODES[a].homeY-cy)
+  );
+  order.forEach(idx => {
+    const n=NODES[idx];
+    const displayName=MOBILE_LABEL_NAMES[n.id]||n.name;
+    const lines=labelLines(displayName);
+    const width=Math.max(...lines.map(line=>line.length*6.2))+12;
+    const height=fontSize+(lines.length-1)*lineHeight+8;
+    const outwardX=n.homeX<cx?'left':'right';
+    const outwardY=n.homeY<cy?'above':'below';
+    const modes=[outwardY,outwardX,outwardX==='left'?'right':'left',outwardY==='above'?'below':'above'];
+    const candidates=modes.map(mode=>{
+      let offsetX=0,offsetY=n.r+15;
+      if(mode==='above')offsetY=-n.r-8-(lines.length-1)*lineHeight;
+      if(mode==='left'){offsetX=-n.r-width/2-10;offsetY=-(lines.length-1)*lineHeight/2+fontSize*.35;}
+      if(mode==='right'){offsetX=n.r+width/2+10;offsetY=-(lines.length-1)*lineHeight/2+fontSize*.35;}
+      const x=n.homeX+offsetX,y=n.homeY+offsetY;
+      return {offsetX,offsetY,box:{left:x-width/2,right:x+width/2,top:y-fontSize-2,bottom:y-fontSize-2+height}};
+    });
+    const chosen=candidates.find(candidate=>
+      candidate.box.left>8&&candidate.box.right<layoutWidth-8&&candidate.box.top>180&&candidate.box.bottom<layoutHeight-105&&
+      !iconBoxes.some((box,j)=>j!==idx&&overlaps(candidate.box,box))&&
+      !placed.some(box=>overlaps(candidate.box,box))
+    )||candidates[0];
+    n.labelOffsetX=chosen.offsetX;n.labelOffsetY=chosen.offsetY;
+    placed.push(chosen.box);
   });
-  const rows = Math.ceil(NODES.length / columns);
-  worldBounds = {
-    left: left - 50,
-    top: top - 50,
-    right: left + (columns - 1) * cellWidth + 55,
-    bottom: top + (rows - 1) * cellHeight + 60
-  };
+}
+
+function initPositions() {
+  const mode = effectiveLayoutMode();
+  if (mode === 'mobile') {
+    const columns = 4;
+    const cellWidth = 107;
+    const cellHeight = 86;
+    const left = 42;
+    const top = W < 700 ? 220 : 190;
+    NODES.forEach((n, i) => {
+      // Every service owns a stable grid cell on narrow screens.
+      const column = i % columns;
+      const row = Math.floor(i / columns);
+      n.homeX = left + column * cellWidth;
+      n.homeY = top + row * cellHeight;
+      n.x = n.homeX; n.y = n.homeY;
+      n.vx = 0; n.vy = 0; n.r = W < 700 ? 17 : 19;
+      n.anchor = null; n.labelAbove = false;
+    });
+    const rows = Math.ceil(NODES.length / columns);
+    worldBounds = {
+      left: left - 50,
+      top: top - 50,
+      right: left + (columns - 1) * cellWidth + 55,
+      bottom: top + (rows - 1) * cellHeight + 60
+    };
+  } else {
+    const layoutWidth=Math.max(1900,W),layoutHeight=Math.max(1000,H);
+    const left = 54, right = layoutWidth - 58;
+    const top = Math.max(250, layoutHeight * 0.25), bottom = layoutHeight - 150;
+    const cx = (left + right) / 2, cy = (top + bottom) / 2;
+    const rx = Math.max(330, (right - left) * 0.46);
+    const ry = Math.max(210, (bottom - top) * 0.46);
+    const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+    NODES.forEach((n, i) => {
+      // Wide screens use the spacious free constellation from the desktop design.
+      const spread = Math.sqrt((i + 0.8) / NODES.length);
+      const angle = i * goldenAngle - Math.PI / 2;
+      n.homeX = cx + Math.cos(angle) * rx * spread;
+      n.homeY = cy + Math.sin(angle) * ry * spread;
+      n.x = n.homeX; n.y = n.homeY;
+      n.vx = 0; n.vy = 0; n.r = 19;
+      n.anchor = null;
+    });
+    assignDesktopLabelPlacements(cx,cy,layoutWidth,layoutHeight);
+    worldBounds = { left: 0, top: top - 100, right: layoutWidth, bottom: layoutHeight };
+  }
   layoutReady = true;
+  syncLayoutToggle();
 }
 
 let focusMode = false;      // true while a traced path is pinned
@@ -2521,6 +2591,21 @@ let traceOriginalPositions = new Map(); // restore only the traced nodes after t
 let userMotionPaused = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const motionToggle = document.getElementById('motion-toggle');
+const layoutToggle = document.getElementById('layout-toggle');
+function syncLayoutToggle() {
+  if (!layoutToggle || !W) return;
+  const mode = effectiveLayoutMode();
+  layoutToggle.setAttribute('aria-pressed', String(mode === 'mobile'));
+  layoutToggle.textContent = mode === 'mobile' ? '▦ mobile grid' : '✦ desktop map';
+  layoutToggle.title = mode === 'mobile'
+    ? 'Mobile grid is active. Switch to the desktop constellation.'
+    : 'Desktop constellation is active. Switch to the mobile grid.';
+}
+layoutToggle.addEventListener('click', () => {
+  forcedLayoutMode = effectiveLayoutMode() === 'desktop' ? 'mobile' : 'desktop';
+  resetView();
+  initPositions();
+});
 function syncMotionToggle() {
   motionToggle.setAttribute('aria-pressed', String(userMotionPaused));
   motionToggle.textContent = userMotionPaused ? '● motion paused' : '◌ gentle motion';
@@ -2728,7 +2813,10 @@ function draw() {
     const labelHeight=fontSize+(lines.length-1)*lineHeight+4;
     const baseX=focusMode?n.x:n.homeX;
     const baseY=focusMode?n.y:n.homeY;
-    const drawX=Math.round(baseX),drawY=Math.round(baseY+n.r+(W<700?13:15));
+    const desktopOverview=!focusMode&&effectiveLayoutMode()==='desktop';
+    const labelX=desktopOverview?baseX+(n.labelOffsetX||0):baseX;
+    const labelY=desktopOverview?baseY+(n.labelOffsetY||n.r+15):baseY+n.r+(W<700?13:15);
+    const drawX=Math.round(labelX),drawY=Math.round(labelY);
     ctx.beginPath();
     ctx.roundRect(drawX-width/2-2,drawY-fontSize-2,width+4,labelHeight+2,4);
     ctx.fillStyle=focusMode?'rgba(6,10,20,.94)':'rgba(6,10,20,.78)';
