@@ -2493,7 +2493,7 @@ function initPositions() {
     n.homeX = cx + Math.cos(angle) * rx * spread;
     n.homeY = cy + Math.sin(angle) * ry * spread;
     n.x = n.homeX; n.y = n.homeY;
-    n.vx = 0; n.vy = 0; n.r = W < 700 ? 22 : (NODES.length > 58 ? 19 : 24);
+    n.vx = 0; n.vy = 0; n.r = W < 700 ? 17 : (NODES.length > 58 ? 19 : 24);
     n.anchor = null;
   });
   layoutReady = true;
@@ -2577,6 +2577,7 @@ const particles = edgeData.map(e => ({
 --------------------------------------------------------------- */
 let hoverNode = null;
 let selectedNode = null;
+const MOBILE_CORE_LABELS = new Set(['integration_services','databricks','adls','adf','eventhub','unity_catalog','entra','powerbi','purview','synapse']);
 function nodeColor(n) { return CATEGORIES[n.cat].color; }
 function edgeKey(a, b) { return a < b ? a + '-' + b : b + '-' + a; }
 
@@ -2584,6 +2585,7 @@ function draw() {
   ctx.clearRect(0, 0, W, H);
   ctx.save();
   ctx.translate(viewOffsetX, viewOffsetY);
+  const labelCandidates=[];
 
   edgeData.forEach(e => {
     const a = NODES[e.a], b = NODES[e.b];
@@ -2656,10 +2658,9 @@ function draw() {
     ctx.fill();
     ctx.globalAlpha = 1;
 
-    ctx.font = '600 11.5px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = dim ? 'rgba(120,130,155,0.45)' : '#eef2fb';
-    wrapLabel(n.name, n.x, n.y + n.r + 16);
+    const isHovered=hoverNode===n;
+    const labelPriority=isSelected?100:(isHovered?95:(onPath?90:(!focusMode&&MOBILE_CORE_LABELS.has(n.id)?60:10)));
+    if(W>=700||labelPriority>10)labelCandidates.push({n,dim,priority:labelPriority});
 
     if (onPath) {
       const order = [...pathNodeSet].indexOf(i);
@@ -2671,15 +2672,33 @@ function draw() {
       ctx.fillText(String(order + 1), n.x + n.r - 6, n.y - n.r + 9.5);
     }
   });
+  const placedLabels=[];
+  labelCandidates.sort((a,b)=>b.priority-a.priority).forEach(item=>{
+    const n=item.n,fontSize=W<700?9.5:11.5;
+    ctx.font=`600 ${fontSize}px Inter, sans-serif`;
+    const lines=labelLines(n.name);
+    const width=Math.max(...lines.map(line=>ctx.measureText(line).width))+8;
+    const y=n.y+n.r+(W<700?13:16);
+    const box={left:n.x-width/2,right:n.x+width/2,top:y-fontSize,bottom:y+(lines.length-1)*(fontSize+2)+5};
+    const collides=placedLabels.some(other=>!(box.right+4<other.left||box.left-4>other.right||box.bottom+3<other.top||box.top-3>other.bottom));
+    if(collides&&item.priority<90)return;
+    ctx.textAlign='center';
+    ctx.fillStyle=item.dim?'rgba(120,130,155,0.45)':'#eef2fb';
+    lines.forEach((line,i)=>ctx.fillText(line,n.x,y+i*(fontSize+2)));
+    placedLabels.push(box);
+  });
   ctx.restore();
 }
 
+function labelLines(text) {
+  const words=text.split(' ');
+  if(words.length===1||text.length<14)return [text];
+  const mid=Math.ceil(words.length/2);
+  return [words.slice(0,mid).join(' '),words.slice(mid).join(' ')];
+}
+
 function wrapLabel(text, x, y) {
-  const words = text.split(' ');
-  if (words.length === 1 || text.length < 14) { ctx.fillText(text, x, y); return; }
-  const mid = Math.ceil(words.length / 2);
-  ctx.fillText(words.slice(0, mid).join(' '), x, y);
-  ctx.fillText(words.slice(mid).join(' '), x, y + 13);
+  labelLines(text).forEach((line,i)=>ctx.fillText(line,x,y+i*13));
 }
 
 function loop() { step(); draw(); requestAnimationFrame(loop); }
