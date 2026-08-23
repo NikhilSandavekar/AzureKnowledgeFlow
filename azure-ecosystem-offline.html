@@ -93,7 +93,7 @@
   #ask-btn:disabled { opacity: 0.5; cursor: default; }
 
   #local-status {
-    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    display: flex; align-items: center; justify-content: flex-start; gap: 10px;
     margin-top: 7px; padding: 0 3px;
     font-family: var(--mono); font-size: 9.5px; color: var(--ink-2);
   }
@@ -259,7 +259,6 @@
     #ask-input { min-width: 0; font-size: 16px; padding: 7px 0; }
     #ask-btn { padding: 9px 11px; }
     #local-status { margin-top: 5px; }
-    #local-status span:last-child { display: none; }
     #chips { margin-top: 5px; gap: 5px; }
     .chip { font-size: 9.5px; padding: 5px 9px; }
     #hint { display: none; }
@@ -314,7 +313,7 @@
       <input id="ask-input" type="text" aria-label="Ask an Azure or Databricks question" placeholder="Ask Azure or Databricks questions — answers stay on this device" autocomplete="off">
       <button id="ask-btn" type="submit">Trace it</button>
     </form>
-    <div id="local-status"><span class="offline">● OFFLINE KNOWLEDGE</span><span>Azure map + Packt Databricks chapters 2–12</span></div>
+    <div id="local-status"><span class="offline">● OFFLINE KNOWLEDGE</span></div>
     <div id="chips"></div>
     <div id="answer-box"></div>
   </div>
