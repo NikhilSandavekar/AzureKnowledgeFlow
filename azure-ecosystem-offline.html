@@ -263,12 +263,10 @@
     .chip { font-size: 9.5px; padding: 5px 9px; }
     #hint { display: none; }
     #motion-toggle { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); font-size: 9px; }
-    #answer-box, #arch-view { width: min(94vw, 430px); max-width: 94vw; padding: 58px 17px 24px; }
     #answer-box .connection-row { grid-template-columns: minmax(72px,1fr) auto minmax(72px,1fr); gap: 5px; }
     #answer-box .connection-row button { padding: 7px 6px; font-size: 10px; }
     #answer-box .connection-label { font-size: 8px; max-width: 88px; }
     #trace-toolbar { bottom: calc(12px + env(safe-area-inset-bottom)); }
-    .component-card { width: 100%; max-height: 92dvh; padding: 20px 17px; }
   }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
@@ -279,8 +277,25 @@
 #arch-summary{color:#b7c3df;font-size:12px;line-height:1.55;margin:12px 0 15px}.flow-track{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:4px 1px 12px}.flow-card{min-width:0;border:1px solid #293858;background:#101a32;border-radius:11px;padding:11px;cursor:pointer}.flow-card:hover{border-color:#5f79ad;transform:translateX(-2px)}.flow-card .num{font:700 9px var(--mono);color:#f0a848}.flow-card strong{display:block;font-size:12px;margin:4px 0}.flow-card span{font-size:10.5px;color:var(--ink-1);line-height:1.45}.flow-arrow{align-self:center;color:#6e7da3;font:700 14px var(--mono);transform:rotate(90deg);height:16px}
 .layer-wrap{border-top:1px solid var(--line);padding-top:12px;margin-top:4px}.layer-title{font:600 9px var(--mono);letter-spacing:.14em;color:var(--ink-2);text-transform:uppercase;margin-bottom:8px}.layers{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.layer{padding:11px;border-radius:10px;border:1px solid #263453;background:#0d162b}.layer b{display:block;font-size:12px;margin-bottom:5px}.layer p{margin:0;font-size:10.5px;color:var(--ink-1);line-height:1.4}.layer.bronze{border-top:2px solid #b97843}.layer.silver{border-top:2px solid #aeb8c7}.layer.gold{border-top:2px solid #e6cf66}
 .component-item{cursor:pointer!important;border:1px solid transparent;border-radius:7px;padding:7px 8px!important;margin:2px 0}.component-item:hover{background:#15213d;border-color:#2b3e65}.component-item:before{content:'›'!important;left:7px!important;color:#6e82ad!important}.component-item .hint{float:right;color:#56678e;font:9px var(--mono)}
-#component-modal{position:fixed;inset:0;background:rgba(2,5,12,.65);z-index:30;display:none;align-items:center;justify-content:center;padding:20px}.component-card{width:min(700px,94vw);max-height:86vh;overflow:auto;background:linear-gradient(180deg,#121d38,#0c1428);border:1px solid #304263;border-radius:16px;padding:24px;box-shadow:0 30px 100px rgba(0,0,0,.6);position:relative}.component-card #component-close{position:absolute;right:16px;top:16px}.component-card h3{font-size:22px;margin:6px 40px 8px 0}.component-card>p{color:#bdc8e1;font-size:13px;line-height:1.55;max-width:620px}.component-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}.component-grid>div{border:1px solid var(--line);border-radius:10px;padding:12px}.component-grid span{font:600 9px var(--mono);letter-spacing:.12em;color:var(--ink-2)}.component-grid p{font-size:11.5px;line-height:1.5;color:#c5cfe5;margin:7px 0 0}
+#component-modal{position:fixed;inset:0;background:rgba(2,5,12,.65);z-index:30;display:none;align-items:center;justify-content:center;padding:20px}.component-card{width:min(700px,94vw);max-height:86vh;overflow:auto;background:linear-gradient(180deg,#121d38,#0c1428);border:1px solid #304263;border-radius:16px;padding:24px;box-shadow:0 30px 100px rgba(0,0,0,.6);position:relative}.component-card #component-close{position:absolute;right:16px;top:16px}.component-card h3{font-size:22px;margin:6px 40px 8px 0}.component-card>p{color:#bdc8e1;font-size:13px;line-height:1.55;max-width:620px}.component-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}.component-grid>div{border:1px solid var(--line);border-radius:10px;padding:12px}.component-grid .component-wide{grid-column:1/-1}.component-grid span{font:600 9px var(--mono);letter-spacing:.12em;color:var(--ink-2)}.component-grid p{font-size:11.5px;line-height:1.5;color:#c5cfe5;margin:7px 0 0}
 @media(max-width:900px){#arch-view{top:0;right:0;bottom:0;width:min(94vw,430px);max-width:94vw;height:100%;height:100dvh;padding:58px 18px 24px}#panel{width:min(94vw,430px);max-width:94vw;padding-top:58px}.component-grid{grid-template-columns:1fr}.layers{grid-template-columns:1fr}.flow-card{min-width:0}}
+@media(max-width:700px){
+  #answer-box,#panel,#arch-view{position:fixed;top:auto;left:0;right:0;bottom:0;width:100%;max-width:none;height:50dvh;min-height:310px;max-height:520px;padding:42px 16px calc(18px + env(safe-area-inset-bottom));border:0;border-top:1px solid #304263;border-radius:18px 18px 0 0;box-shadow:0 -20px 60px rgba(0,0,0,.56);overflow-y:auto}
+  #answer-box,#panel{transform:translateY(105%)}
+  #answer-box.show,#panel.open{transform:translateY(0)}
+  #arch-view{display:block;visibility:hidden;pointer-events:none;transform:translateY(105%);transition:transform .34s cubic-bezier(.22,.9,.32,1),visibility .34s}
+  #arch-view.show{display:block;visibility:visible;pointer-events:auto;transform:translateY(0)}
+  #answer-box::before,#panel::before,#arch-view::before,.component-card::before{content:'';position:absolute;top:10px;left:50%;width:42px;height:4px;border-radius:999px;background:#4a5d83;transform:translateX(-50%)}
+  #answer-box .clear-link{top:16px;right:16px}
+  #panel .close{top:16px;right:16px}
+  #trace-toolbar{bottom:calc(50dvh + 10px + env(safe-area-inset-bottom))}
+  #motion-toggle{bottom:calc(50dvh + 12px + env(safe-area-inset-bottom))}
+  #component-modal{align-items:flex-end;justify-content:center;padding:0;background:rgba(2,5,12,.38)}
+  .component-card{width:100%;max-width:none;max-height:52dvh;padding:42px 16px calc(18px + env(safe-area-inset-bottom));border-radius:18px 18px 0 0;border-bottom:0}
+  .component-card h3{font-size:19px}
+  .component-grid{grid-template-columns:1fr}
+  .component-grid .component-wide{grid-column:auto}
+}
 </style>
 </head>
 <body>
@@ -342,6 +357,7 @@
         <div><span>WHEN TO USE IT</span><p id="component-use"></p></div>
         <div><span>DESIGN / RESILIENCE</span><p id="component-design"></p></div>
         <div><span>COMMON GOTCHA</span><p id="component-gotcha"></p></div>
+        <div class="component-wide"><span>HOW IT CONNECTS</span><p id="component-connects"></p></div>
       </div>
     </div>
   </div>
@@ -2956,6 +2972,11 @@ const ARCH_PATTERNS = {
 };
 
 const COMPONENT_DETAILS = {
+  "Containers / folders":["With hierarchical namespace enabled, ADLS Gen2 exposes real directories and nested paths instead of only virtual blob prefixes. Directory rename and delete operations are atomic metadata operations, which makes Spark and Hadoop-style workloads much more efficient.","Use containers (also called filesystems through the DFS endpoint) as broad ownership, lifecycle or security boundaries. Use folders inside them for zones such as landing, bronze, silver and gold, and for dataset-level organization.","Access data through the ABFS/DFS endpoint. Apply Azure RBAC at the storage account or container for broad access, then POSIX ACLs at directories/files for finer control. A directory needs execute permission for path traversal; default ACLs are inherited only by new children.","A folder name is organization, not a security boundary by itself. Existing children do not automatically inherit a newly changed default ACL, and moving data across security boundaries can expose or block it unexpectedly."],
+  "ACLs + RBAC":["Azure RBAC authorizes broad access to the storage account or container, while POSIX-style ACLs provide fine-grained read, write and execute permissions on directories and files. Microsoft Entra groups are the recommended principals for both layers.","Use RBAC alone when a whole team needs the same container-level access. Add ACLs when different teams or pipelines require different access inside the same container, such as separate source or medallion folders.","Grant the narrowest data-plane role to Entra groups or managed identities, then set access and default ACLs deliberately. Remember that execute on each parent directory is required to traverse a path.","A management-plane role such as Contributor does not automatically grant data access. Conversely, a broad Storage Blob Data role can grant access before ACL checks, so do not expect a restrictive ACL to cancel an overly broad RBAC assignment."],
+  "Lifecycle management":["Storage lifecycle rules evaluate blob age, last-access time, prefixes or index tags and then tier or delete matching data automatically. This turns retention and cost policy into repeatable storage-account behavior.","Use it to move aging raw files to cooler tiers, expire temporary checkpoints or exports, and enforce retention for datasets that no longer need active storage.","Start with narrow prefixes and test rule matches before applying delete actions. Align rules with legal retention, Delta table maintenance and the actual access pattern; policy execution is asynchronous rather than an exact-time scheduler.","Deleting a blob through a lifecycle rule can still leave billable retained data when soft delete is enabled. Never apply a broad prefix rule to transaction logs, checkpoints or active Delta data without validating the consequences."],
+  "Soft delete / versioning":["For an ADLS Gen2 account with hierarchical namespace, blob soft delete can recover deleted files and directories for the retention window, but it does not protect overwritten data. Blob versioning is not available on hierarchical-namespace accounts.","Enable soft delete to protect against accidental deletion and consider container soft delete for deleted containers. Use a separate backup or replication strategy when recovery from overwrite, corruption or regional loss is required.","Choose and document a retention period, test directory recovery, and monitor the storage cost of retained deleted data. Treat redundancy, soft delete and backup as different controls with different failure coverage.","Do not design an HNS recovery plan around blob versioning—it is unsupported there. Soft delete is also not a full backup and does not by itself provide point-in-time recovery from every failure mode."],
+  "Change feed":["Blob change feed is an ordered, durable log of blob create, update and delete events stored in the $blobchangefeed container for supported storage accounts. However, accounts with hierarchical namespace enabled are not currently supported, and operations made through the DFS endpoint are not logged.","Use Blob change feed for supported flat-namespace Blob Storage accounts that need an auditable stream of object changes. For ADLS Gen2 HNS workloads, choose Event Grid for event notification, Auto Loader checkpoints for new-file ingestion, Azure diagnostics for auditing, or Delta Change Data Feed for table-row changes.","Match the mechanism to the question: Event Grid signals events, Auto Loader tracks discovered files, diagnostic logs record operations, and Delta CDF exposes row-level table changes. Design checkpoints and consumers to be idempotent.","Do not assume that listing ‘Change feed’ under ADLS Gen2 means HNS/DFS changes are captured. Validate the account namespace and endpoint before building downstream CDC on it."],
   "Self-hosted Integration Runtime":["A small runtime installed inside the private network. ADF sends orchestration instructions to it; the runtime reaches the source locally and transfers data through the configured path.","Use when a source is on-premises, in another private network, or cannot expose a public endpoint.","Install multiple nodes in the same runtime for higher availability and plan outbound connectivity/firewall rules.","Do not treat it as a data store. It is an execution/connection bridge."],
   "Copy Activity":["Moves data between supported sources and sinks and can perform mapping, partitioning and incremental extraction.","Use for straightforward ingestion and movement where Spark-style transformation is unnecessary.","Scale with parallel copy carefully so you do not overload the source database or hit service limits.","A common mistake is running a full table copy every day instead of using a watermark or CDC."],
   "Pipelines":["A pipeline is the orchestration container: activities, parameters, variables, dependencies, triggers and retry behavior.","Use it to coordinate ingestion, transformation, validation and notification.","Design idempotent steps and make retries safe; keep secrets out of pipeline JSON.","Avoid one giant pipeline. Use parent/child pipelines and reusable metadata-driven components."],
@@ -2991,6 +3012,102 @@ const COMPONENT_DETAILS = {
   "Expectations":["Named data-quality rules in Lakeflow pipelines that can retain, drop or fail invalid records while emitting metrics.","Use to turn data contracts into observable pipeline behavior.","Separate hard correctness constraints from warning-only checks and route quarantined records for investigation.","Dropping data silently can make totals look healthy while hiding upstream defects."],
   "Schema Registry":["A governed store for event schemas so producers and consumers agree on message structure and compatibility.","Use with Event Hubs when many applications exchange Avro or other schema-controlled events and changes must be managed safely.","Apply compatibility rules, version schemas deliberately and keep consumer deployment aligned with schema evolution.","A registry validates structure contracts; it does not validate every business-quality rule inside an event."]
 };
+
+const COMPONENT_RULES = [
+  {
+    test:(n,c)=>/private endpoint|private link|private access|service endpoint/i.test(c),
+    details:(n,c)=>[`${c} gives ${n.name} a private network path or restricts how clients reach the service, reducing reliance on a public endpoint.`,`Use it when data traffic must remain on private Azure networking or when a source is reachable only from selected VNets.`,`Plan the subnet, route path and Private DNS name resolution together; then authenticate with Entra ID or a managed identity and grant least-privilege data access.`,`Private connectivity controls the route, not authorization. A working private IP does not grant access, and incorrect DNS often sends clients back to a public address.`]
+  },
+  {
+    test:(n,c)=>/dns|name resolution/i.test(c),
+    details:(n,c)=>[`${c} resolves service names to the IP addresses clients must use, including private endpoint addresses when public routing is disabled.`,`Use it whenever ${n.name} or its clients span VNets, spokes, on-premises networks or private endpoints.`,`Link the correct private DNS zones to every client VNet and configure conditional forwarding for on-premises resolvers; test the exact service FQDN from each network.`,`Routing can be correct while DNS still returns a public address. Test name resolution before debugging firewalls or application credentials.`]
+  },
+  {
+    test:(n,c)=>/subnet|nsg|route|peering|virtual wan|virtual hub|expressroute|vpn|bgp|gateway|fastpath|ipsec|ike|circuit/i.test(c),
+    details:(n,c)=>[`${c} is part of the network path that carries or filters traffic for ${n.name}. It determines reachability between a client network and the service endpoint.`,`Use it to connect isolated networks, steer traffic through inspection, or enforce which sources and destinations may communicate.`,`Design both directions of the route, allow only required ports, avoid overlapping address spaces and monitor effective routes plus connection health. ${n.avail}`,`Network connectivity is not transitive by default. A peering, hub or gateway on one side does not guarantee that DNS, return routes and security rules are correct end to end.`]
+  },
+  {
+    test:(n,c)=>/managed identit|service principal|token|conditional access|secret|key|certificate|hsm|credential|workload identit|rbac|acl|content trust/i.test(c),
+    details:(n,c)=>[`${c} controls how a user, workload or artifact proves identity and receives permission when interacting with ${n.name}.`,`Use it to remove embedded credentials, scope service-to-service access and enforce security policy consistently across Azure and Databricks.`,`Prefer Entra groups and managed identities, grant the smallest data-plane role at the narrowest practical scope, rotate key material and audit both successful and denied access.`,`Authentication and authorization are separate: obtaining a token does not guarantee the resource role or data permission required for the operation.`]
+  },
+  {
+    test:(n,c)=>/queue|topic|subscription|session|dead.?letter|poison|visibility timeout|pub\/sub/i.test(c),
+    details:(n,c)=>[`${c} shapes how ${n.name} buffers, routes, orders or isolates messages between producers and consumers.`,`Use it to decouple services, absorb traffic spikes, fan events out to independent consumers or quarantine messages that cannot be processed.`,`Choose the partition, session or ordering key deliberately; set retry, lock/visibility and dead-letter handling; make consumers idempotent.`,`Delivery is commonly at least once. Without duplicate detection or idempotent writes, retries can create duplicate business effects.`]
+  },
+  {
+    test:(n,c)=>/partition|shard|ru\/s|throughput|autoscale|global distribution|replica|replication|failover|geo|active-active|ha port|recovery|restore|backup|soft delete|object replication/i.test(c),
+    details:(n,c)=>[`${c} controls how ${n.name} distributes capacity or keeps recoverable copies so the workload can survive growth and failures.`,`Use it when availability, disaster recovery, read scale, throughput isolation or recovery objectives require more than a single default deployment.`,`Define RPO and RTO first, place copies in the intended failure domains, test failover/restore and monitor replication lag or capacity. ${n.avail}`,`A replica or redundant copy is not automatically a backup. Replication can copy accidental deletes or corrupt changes, so recovery must be tested separately.`]
+  },
+  {
+    test:(n,c)=>/cdc|change feed|change data|temporal|time travel/i.test(c),
+    details:(n,c)=>[`${c} exposes historical or incremental changes from ${n.name} so downstream processing can avoid repeated full scans.`,`Use it for incremental ingestion, audit reconstruction, point-in-time analysis or synchronized downstream tables.`,`Persist the consumer offset or watermark, retain source history long enough for recovery and make target writes idempotent; handle inserts, updates and deletes explicitly.`,`Retention can expire before a failed consumer restarts. Confirm whether the mechanism captures row changes, file events or only metadata because those are not interchangeable.`]
+  },
+  {
+    test:(n,c)=>/trigger|schedule|workflow|pipeline|activity|forEach|until|job|task dag|dependency|parameter|retry|run history|durable function|binding|connector/i.test(c),
+    details:(n,c)=>[`${c} defines when work runs or how steps and external systems are coordinated inside ${n.name}.`,`Use it to turn manual data movement or processing into repeatable, parameterized execution with visible dependencies and failure handling.`,`Make each step idempotent, set timeouts and bounded retries, pass parameters instead of secrets, and emit a durable run identifier plus operational metrics.`,`A successful orchestrator run does not prove the data is correct. Add row-count, freshness and quality checks before marking the workflow complete.`]
+  },
+  {
+    test:(n,c)=>/micro.?batch|watermark|window|stateful|late arrival|event hub-compatible|routing|multiple inputs|stream/i.test(c),
+    details:(n,c)=>[`${c} controls how ${n.name} ingests or processes continuously arriving events, including ordering, time windows and retained state.`,`Use it when the business needs seconds-to-minutes latency or continuous ingestion instead of scheduled batch reads.`,`Use durable checkpoints, deterministic sinks and an event-time policy based on measured lateness; monitor consumer lag, state size and back-pressure.`,`Late-data policy is a correctness decision. A watermark limits retained state and can prevent very late events from updating old results.`]
+  },
+  {
+    test:(n,c)=>/container|folder|blob|file|upload|download|access tier|lifecycle|parquet|schema|checkpoint|cloudfiles|rescueddata|notification mode/i.test(c),
+    details:(n,c)=>[`${c} controls how data is organized, discovered, retained or moved within ${n.name}, whose role is ${n.role.toLowerCase()}.`,`Use it to implement ${n.patterns[0] || 'the service storage pattern'} while keeping raw inputs, processing state and curated outputs clearly separated.`,`Choose paths, formats and retention around access patterns; use managed identity, least-privilege permissions and durable checkpoints where processing can restart. ${n.avail}`,`Storage layout becomes an API for downstream jobs. Renaming paths, changing schemas or deleting checkpoints without a migration plan can break readers or reprocess data.`]
+  },
+  {
+    test:(n,c)=>/spark|photon|adaptive query|query|sql|warehouse|lakehouse|directquery|import|composite model|dataflow|materialized view|index|semantic ranker|skillset/i.test(c),
+    details:(n,c)=>[`${c} is an execution or serving capability of ${n.name} that turns stored data into queryable, transformed or business-facing results.`,`Use it when ${n.patterns[0] || n.role.toLowerCase()} matches the required latency, scale and consumption model.`,`Measure bytes scanned, shuffle, concurrency and freshness; choose file/table layout and compute sizing from representative workloads. ${n.avail}`,`More compute does not repair a poor data model or scan pattern. Validate grain, filters, joins and small-file behavior before scaling the service.`]
+  },
+  {
+    test:(n,c)=>/catalog|metastore|lineage|classification|glossary|data map|policy|initiative|assignment|remediation|secure score|compliance|recommendation/i.test(c),
+    details:(n,c)=>[`${c} records or enforces governance context for ${n.name}: ownership, discovery, classification, access policy, lineage or compliance status.`,`Use it when teams need to find trusted assets, understand meaning and origin, or prove that required controls are consistently applied.`,`Assign accountable owners, connect technical metadata to business definitions, grant access to groups and review policy or lineage gaps continuously.`,`A catalog or policy inventory is not governance by itself. Stale ownership, missing scans and broad exceptions quickly make the information unreliable.`]
+  },
+  {
+    test:(n,c)=>/metric|log|trace|request|dependency|diagnostic|kql|alert|workbook|retention|audit|billing|usage|query history|event log/i.test(c),
+    details:(n,c)=>[`${c} provides telemetry from ${n.name} for performance, reliability, cost or security investigation.`,`Use it to detect failed or slow workloads, measure freshness and SLA attainment, attribute spend and reconstruct operational events.`,`Send the required diagnostic categories to a governed destination, set retention intentionally and alert on actionable service-level symptoms with an owner and runbook.`,`Collecting logs without correlation IDs, thresholds and ownership creates an archive rather than observability; also budget for ingestion and retention cost.`]
+  },
+  {
+    test:(n,c)=>/model|mlflow|experiment|feature|training|evaluation|prompt|agent|embedding|vector|similarity|rag|endpoint/i.test(c),
+    details:(n,c)=>[`${c} is part of the model or AI lifecycle in ${n.name}, connecting governed data to training, evaluation, retrieval or serving.`,`Use it when the application needs reproducible experiments, reusable features, grounded retrieval or a controlled production inference endpoint.`,`Version data, code, prompts and models together; evaluate quality and safety on representative cases; monitor drift, latency, cost and permissions after release.`,`A technically reachable model is not production-ready. Missing lineage, evaluation or source-level authorization can produce unsafe or unreproducible answers.`]
+  },
+  {
+    test:(n,c)=>/api|gateway|product|developer portal|web app|ingress|waf|tls|cdn|health probe|rule|nat/i.test(c),
+    details:(n,c)=>[`${c} controls how clients enter, route through or consume ${n.name}, including protocol, policy and health-based traffic decisions.`,`Use it to publish a stable interface, terminate or inspect traffic, rate-limit consumers, or route requests to healthy backends.`,`Define authentication, TLS, timeouts, health probes and throttling explicitly; deploy across failure domains and monitor client-visible latency plus error rate.`,`A healthy gateway does not prove the backend operation succeeded. Preserve correlation IDs and test failure, retry and timeout behavior across the whole request path.`]
+  },
+  {
+    test:(n,c)=>/cache|ttl|keda|hpa|node pool|compute cluster|cluster|revision|deployment slot|autoscale|scaling/i.test(c),
+    details:(n,c)=>[`${c} controls the runtime capacity or release behavior of ${n.name}, affecting latency, throughput, isolation and cost.`,`Use it to match capacity to demand, isolate workloads or deploy a new version without interrupting all traffic.`,`Set minimum/maximum capacity and scale signals from measured workload behavior; spread critical capacity across failure domains and test rollback. ${n.avail}`,`Autoscaling reacts after a signal and is not instantaneous. Cold starts, quotas or a slow dependency can remain the bottleneck even when more instances are added.`]
+  }
+];
+
+const CATEGORY_COMPONENT_GUIDES = {
+  storage:["organizes or protects stored objects and analytical files","durable landing, lake or archive design","Treat paths, formats and retention as stable interfaces; use identity-based access and test recovery.","A storage feature does not automatically provide transaction semantics, backup or regional recovery."],
+  database:["controls how operational records are stored, queried or recovered","transactional or low-latency data access","Model keys and indexes from query patterns; use connection pooling, backups and tested failover.","Scale, consistency and recovery behavior vary by engine and tier; test with production-like load."],
+  network:["participates in routing, name resolution or traffic control","private and reliable service connectivity","Validate DNS, forward and return routes, firewall rules and redundant paths end to end.","A single green connection test does not prove failover or every client network is configured."],
+  security:["controls identity, secrets, policy or threat protection","least-privilege and auditable access","Use Entra groups or managed identities, narrow scopes and continuous access review.","Authentication, authorization and network reachability are different controls."],
+  orchestration:["coordinates executable work and its dependencies","repeatable batch, integration or deployment workflows","Make retries safe, retain run state and validate outputs before downstream steps start.","A completed activity can still publish incomplete or incorrect data."],
+  streaming:["controls continuous event ingestion or stateful stream processing","low-latency event and telemetry pipelines","Design partitioning, checkpoints, late-data rules and idempotent sinks together.","Ordering and exactly-once behavior are bounded by the selected source, partition and sink."],
+  governance:["adds discovery, ownership, policy or lineage metadata","trusted data sharing and compliance","Keep ownership, scans, classifications and grants current and review exceptions.","Metadata becomes misleading when scans, lineage or owners are stale."],
+  observability:["captures signals used to operate and investigate the platform","SLA, cost, performance and security monitoring","Correlate logs, metrics and traces; set retention, thresholds, owners and runbooks.","Telemetry without an actionable alert or owner rarely improves reliability."],
+  ml:["supports model development, tracking or production inference","governed machine-learning delivery","Version inputs and outputs, evaluate on representative data and monitor after deployment.","Model accuracy can decay even while the endpoint remains technically healthy."],
+  ai:["supports retrieval, model orchestration, evaluation or AI serving","grounded and governed AI applications","Evaluate quality and safety, protect source permissions and monitor latency, cost and drift.","A generated response can be fluent but wrong; require evidence and task-specific evaluation."],
+  analytics:["transforms or queries data for analytical consumption","engineering, exploration or curated analytical serving","Measure scan, shuffle and concurrency; optimize data layout before adding compute.","Performance tuning cannot repair incorrect grain or business logic."],
+  bi:["shapes or serves business-facing analytical results","governed metrics and interactive reporting","Centralize measures, define model grain and validate refresh plus row-level security.","A visually correct report can still be wrong when each report recreates business logic."],
+  compute:["controls application or processing runtime behavior","scalable execution of code and data workloads","Use workload identity, autoscale limits, health probes and repeatable deployment artifacts.","More instances do not solve an overloaded downstream service or unsafe retry behavior."]
+};
+
+function componentDetailsFor(n, component){
+  if(COMPONENT_DETAILS[component])return COMPONENT_DETAILS[component];
+  const rule=COMPONENT_RULES.find(r=>r.test(n,component));
+  if(rule)return rule.details(n,component);
+  const guide=CATEGORY_COMPONENT_GUIDES[n.cat]||["provides a named service function","the service pattern that requires this function","Define ownership, permissions, monitoring, retry behavior and recovery before production.","Confirm exact tier, region, quota and API behavior with a production-like test."];
+  return [
+    `${component} ${guide[0]} in ${n.name}. In this map it supports ${n.role.toLowerCase()} and connects to the service's ${n.srcSink.toLowerCase()} data-flow role.`,
+    `Use ${component} for ${guide[1]}, especially in the ${n.patterns[0] || 'documented'} pattern shown for ${n.name}.`,
+    `${guide[2]} Service resilience note: ${n.avail}`,
+    `${guide[3]} For ${component}, verify the selected ${n.name} tier and the connected source or consumer before rollout.`
+  ];
+}
 
 const PACKT_SOURCE = "PacktPublishing/Data-Engineering-with-Azure-Databricks — embedded chapter guidance (2–5, 7–12)";
 const KNOWLEDGE_TOPICS = [
@@ -3278,12 +3395,7 @@ function renderServiceAnswer(n){
 
 function renderComponentConceptAnswer(match){
   const n=match.n,component=match.component;
-  const d=COMPONENT_DETAILS[component]||[
-    `${component} is part of ${n.name} and supports its ${n.role.toLowerCase()} capability.`,
-    `Use it when the architecture needs the specific capability represented by ${component}.`,
-    `Design it with least privilege, monitoring, retries and the availability limits of ${n.name}.`,
-    `Confirm current regional and SKU support before production use.`
-  ];
+  const d=componentDetailsFor(n,component);
   focusServices([n.id]);
   let html='<span class="clear-link" onclick="clearAnswer()">clear ✕</span>';
   html+=`<h3 class="answer-title">${escapeHTML(component)}</h3><p class="answer-summary">A component of ${escapeHTML(n.name)}. ${escapeHTML(d[0])}</p><ul>`;
@@ -3310,12 +3422,7 @@ function escapeHTML(s){ return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<"
 
 function showComponent(serviceId, component){
   const n=findNode(serviceId);
-  const d=COMPONENT_DETAILS[component] || [
-    `${component} is a component/activity of ${n.name}. It participates in the service's data, control or security plane.`,
-    `Use it when the architecture needs the capability represented by this component.`,
-    `Design for least privilege, retries and the service's supported redundancy options; validate regional/tier constraints for production.`,
-    `Do not treat a component name as a guarantee of a specific SLA or feature in every region/tier. Verify the selected SKU and region.`
-  ];
+  const d=componentDetailsFor(n,component);
   document.getElementById('component-service').textContent=n.name;
   document.getElementById('component-title').textContent=component;
   document.getElementById('component-body').textContent=d[0];
@@ -3323,6 +3430,9 @@ function showComponent(serviceId, component){
   document.getElementById('component-use').textContent=d[1];
   document.getElementById('component-design').textContent=d[2];
   document.getElementById('component-gotcha').textContent=d[3];
+  const connections=[];
+  adjacency[idIndex[serviceId]].forEach((label,ni)=>connections.push(`${n.name} → ${NODES[ni].name} (${label})`));
+  document.getElementById('component-connects').textContent=connections.slice(0,6).join(' · ') || `${n.name} is shown as a standalone platform capability in this map.`;
   const m=document.getElementById('component-modal'); m.style.display='flex'; m.setAttribute('aria-hidden','false');
 }
 function closeComponent(){const m=document.getElementById('component-modal');m.style.display='none';m.setAttribute('aria-hidden','true');}
@@ -3527,3 +3637,4 @@ SAMPLE_QUESTIONS.forEach(q=>{const c=document.createElement('div');c.className='
 </script>
 </body>
 </html>
+
