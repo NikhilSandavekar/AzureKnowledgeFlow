@@ -237,6 +237,7 @@
     backdrop-filter: blur(12px);
   }
   #stage.trace-open #trace-toolbar { display: flex; }
+  #stage.drawer-open #trace-toolbar { display: none; }
   #trace-toolbar button {
     border: 0; border-radius: 999px; padding: 7px 12px; cursor: pointer;
     background: transparent; color: var(--ink-1); font: 10px var(--mono);
@@ -1108,6 +1109,34 @@ const NODES = [
     ]
   },
   {
+    "id": "integration_services",
+    "name": "Azure Integration Services",
+    "cat": "integration",
+    "aliases": [
+      "azure integration services",
+      "azure integration engine",
+      "integration engine",
+      "azure integration platform",
+      "enterprise integration services"
+    ],
+    "role": "Enterprise application, API, messaging, event and data integration",
+    "srcSink": "Both",
+    "avail": "Resilience is composed per service: scale, zone and regional capabilities differ across Logic Apps, API Management, Service Bus, Event Grid, Functions and Data Factory",
+    "components": [
+      "Logic Apps workflows",
+      "API Management gateway",
+      "Service Bus queues/topics",
+      "Event Grid event routing",
+      "Azure Functions custom code",
+      "Data Factory data integration"
+    ],
+    "patterns": [
+      "API-led enterprise integration",
+      "Reliable messaging and workflow orchestration",
+      "Event-driven integration with Azure Databricks"
+    ]
+  },
+  {
     "id": "logicapps",
     "name": "Azure Logic Apps",
     "cat": "integration",
@@ -1970,6 +1999,61 @@ const EDGES = [
     "HTTP/API"
   ],
   [
+    "integration_services",
+    "logicapps",
+    "Workflow orchestration"
+  ],
+  [
+    "integration_services",
+    "apim",
+    "API façade and policy"
+  ],
+  [
+    "integration_services",
+    "servicebus",
+    "Reliable queues and topics"
+  ],
+  [
+    "integration_services",
+    "eventgrid",
+    "Event routing"
+  ],
+  [
+    "integration_services",
+    "functions",
+    "Custom integration logic"
+  ],
+  [
+    "integration_services",
+    "adf",
+    "Data movement and orchestration"
+  ],
+  [
+    "integration_services",
+    "eventhub",
+    "High-throughput event ingestion"
+  ],
+  [
+    "integration_services",
+    "databricks",
+    "Jobs, SQL and model APIs"
+  ],
+  [
+    "integration_services",
+    "onprem",
+    "Hybrid applications and data"
+  ],
+  [
+    "integration_services",
+    "entra",
+    "OAuth and managed identity"
+  ],
+  [
+    "integration_services",
+    "keyvault",
+    "Secrets and certificates"
+  ],
+  [
     "acr",
     "aks",
     "Image pull"
@@ -2343,6 +2427,7 @@ const EDGES = [
 
 const SAMPLE_QUESTIONS = [
   "What is a data catalog in Azure Databricks and how does it connect?",
+  "What is the Azure integration engine and how does it connect to Databricks?",
   "How do I bring data from a private on-prem network into ADLS?",
   "Show a complete Bronze → Silver → Gold medallion architecture.",
   "How does Event Hubs data get to Power BI in real time?",
@@ -2784,9 +2869,9 @@ function arrangePath(pathIdxs) {
   for (let i = 0; i < ordered.length - 1; i++) pathEdgeKeys.add(edgeKey(ordered[i], ordered[i + 1]));
   // Only traced nodes move. The rest of the floating map remains exactly where it was.
   const left = 72;
-  const right = W <= 700
-    ? left + Math.max(100,(ordered.length-1)*112)
-    : Math.max(left + 100, W - (W > 900 ? 430 : 58));
+  const viewportRight = Math.max(left + 100, W - (W > 900 ? 430 : 58));
+  const minimumSpacing = W <= 700 ? 112 : 132;
+  const right = Math.max(viewportRight,left + Math.max(100,(ordered.length-1)*minimumSpacing));
   const y = W <= 700
     ? Math.max(265, Math.min(H * 0.42, H - 220))
     : Math.max(300, Math.min(H - 145, H * 0.54));
@@ -2815,7 +2900,7 @@ function clearFocus() {
   restoreTracePositions();
   focusMode = false; pathNodeSet = new Set(); pathEdgeKeys = new Set(); traceOrderedPath = [];
   NODES.forEach(n => { n.anchor = null; n.vx = 0; n.vy = 0; });
-  document.getElementById('stage').classList.remove('trace-open');
+  document.getElementById('stage').classList.remove('trace-open','drawer-open');
 }
 
 const answerBox = document.getElementById('answer-box');
@@ -3003,6 +3088,12 @@ const ARCH_PATTERNS = {
 };
 
 const COMPONENT_DETAILS = {
+  "Logic Apps workflows":["Logic Apps provides low-code, stateful or stateless workflows that orchestrate calls across applications, data and services through managed and built-in connectors.","Use it for business-process orchestration, SaaS integration, approvals and message-driven workflows where connector coverage and visible workflow state reduce custom code.","Choose Consumption or Standard hosting from networking, isolation and throughput requirements. Make actions idempotent, define retry and timeout policies, secure connections with managed identity, and route failures for investigation.","Logic Apps is an orchestrator, not a high-volume analytical processing engine. Keep large transformations in Data Factory, Databricks or another data engine and pass references rather than huge payloads through every action."],
+  "API Management gateway":["API Management publishes a stable API façade and applies cross-cutting policies such as authentication, authorization, throttling, transformation, caching and observability before requests reach a backend.","Use it to expose Logic Apps, Functions, application APIs, Databricks model endpoints or governed data services through a consistent contract and developer experience.","Deploy the tier and regions required by the availability objective, protect backends with Entra tokens or managed identity, validate timeouts, and correlate gateway telemetry with backend requests.","API Management does not make a slow or unreliable backend resilient by itself. Retrying non-idempotent operations at the gateway can duplicate business actions."],
+  "Service Bus queues/topics":["Service Bus provides durable enterprise messaging: queues decouple one producer from competing consumers, while topics and subscriptions fan messages out to independently filtered consumers. Sessions can preserve ordered handling for a business key.","Use it for commands, business events and workflows that need buffering, delivery controls, dead-letter queues, transactions or temporal decoupling between systems.","Design lock duration, retries, duplicate detection, sessions and dead-letter processing together. Use idempotent consumers and monitor active, deferred and dead-letter counts.","Delivery is normally at least once, so a successful receive is not enough—complete the message only after the business effect is safely committed."],
+  "Event Grid event routing":["Event Grid routes discrete events from publishers to subscribers with filtering and push-based delivery. It is designed to notify that something happened rather than store a long event history for analytics.","Use it for reactive automation such as starting a pipeline after a file arrives, invoking a workflow when a resource changes, or distributing domain events to multiple handlers.","Filter as close to the publisher as possible, configure retry and dead-letter destinations, validate subscriber endpoints and make handlers idempotent because delivery can be repeated.","Event Grid is not the same as Event Hubs. Use Event Hubs for high-throughput ordered telemetry streams and replay; use Event Grid for event notification and routing."],
+  "Azure Functions custom code":["Azure Functions runs focused code in response to HTTP requests, messages, timers or events. Within an integration architecture it fills transformation, validation or protocol gaps that connectors and policies cannot handle cleanly.","Use it for short custom adapters, payload validation, enrichment and event handlers. Keep large data engineering or long analytical processing in Databricks or another fit-for-purpose engine.","Select hosting from latency, networking and scaling requirements; use managed identity, bounded retries and idempotency; monitor cold starts, failures and downstream throttling.","A function can scale faster than a database, API or Databricks endpoint behind it. Apply concurrency limits and back-pressure instead of allowing autoscale to overload dependencies."],
+  "Data Factory data integration":["Data Factory provides managed data movement and pipeline orchestration through linked services, integration runtimes, copy activities, parameters, triggers and monitoring.","Use it for batch ingestion, private or on-premises sources, metadata-driven copy patterns and orchestration of Databricks jobs or notebooks.","Use a self-hosted integration runtime for private sources, store secrets in Key Vault, make loads incremental and idempotent, and validate data before advancing watermarks.","Data Factory is optimized for data integration; it is not a general enterprise message broker or API gateway. Use Service Bus, Event Grid or API Management for those responsibilities."],
   "Containers / folders":["With hierarchical namespace enabled, ADLS Gen2 exposes real directories and nested paths instead of only virtual blob prefixes. Directory rename and delete operations are atomic metadata operations, which makes Spark and Hadoop-style workloads much more efficient.","Use containers (also called filesystems through the DFS endpoint) as broad ownership, lifecycle or security boundaries. Use folders inside them for zones such as landing, bronze, silver and gold, and for dataset-level organization.","Access data through the ABFS/DFS endpoint. Apply Azure RBAC at the storage account or container for broad access, then POSIX ACLs at directories/files for finer control. A directory needs execute permission for path traversal; default ACLs are inherited only by new children.","A folder name is organization, not a security boundary by itself. Existing children do not automatically inherit a newly changed default ACL, and moving data across security boundaries can expose or block it unexpectedly."],
   "ACLs + RBAC":["Azure RBAC authorizes broad access to the storage account or container, while POSIX-style ACLs provide fine-grained read, write and execute permissions on directories and files. Microsoft Entra groups are the recommended principals for both layers.","Use RBAC alone when a whole team needs the same container-level access. Add ACLs when different teams or pipelines require different access inside the same container, such as separate source or medallion folders.","Grant the narrowest data-plane role to Entra groups or managed identities, then set access and default ACLs deliberately. Remember that execute on each parent directory is required to traverse a path.","A management-plane role such as Contributor does not automatically grant data access. Conversely, a broad Storage Blob Data role can grant access before ACL checks, so do not expect a restrictive ACL to cancel an overly broad RBAC assignment."],
   "Lifecycle management":["Storage lifecycle rules evaluate blob age, last-access time, prefixes or index tags and then tier or delete matching data automatically. This turns retention and cost policy into repeatable storage-account behavior.","Use it to move aging raw files to cooler tiers, expire temporary checkpoints or exports, and enforce retention for datasets that no longer need active storage.","Start with narrow prefixes and test rule matches before applying delete actions. Align rules with legal retention, Delta table maintenance and the actual access pattern; policy execution is asynchronous rather than an exact-time scheduler.","Deleting a blob through a lifecycle rule can still leave billable retained data when soft delete is enabled. Never apply a broad prefix rule to transaction logs, checkpoints or active Delta data without validating the consequences."],
@@ -3142,6 +3233,19 @@ function componentDetailsFor(n, component){
 
 const PACKT_SOURCE = "PacktPublishing/Data-Engineering-with-Azure-Databricks — embedded chapter guidance (2–5, 7–12)";
 const KNOWLEDGE_TOPICS = [
+  {
+    id:"integration-services", title:"Azure Integration Services — the Azure integration engine",
+    keywords:["azure integration services","azure integration engine","integration engine","azure integration platform","enterprise integration","application integration","api led integration","integration services databricks"],
+    summary:"Azure Integration Services is an architecture family rather than one standalone engine. It combines workflow orchestration, API management, reliable messaging, event routing and data integration so cloud, SaaS and on-premises systems can exchange commands, events and data safely.",
+    bullets:[
+      "Logic Apps orchestrates business workflows and provides connectors; API Management exposes governed synchronous APIs with authentication, throttling, transformation and a developer portal.",
+      "Service Bus handles durable commands and business messages through queues or topics; Event Grid routes discrete notifications; Event Hubs is the better fit for high-throughput replayable telemetry streams.",
+      "Azure Functions supplies small pieces of custom integration code, while Data Factory moves and orchestrates batch data—especially from private or on-premises sources.",
+      "For Azure Databricks, use Data Factory to start jobs/notebooks, API Management or Logic Apps to call governed Jobs, SQL or model-serving APIs, and Event Hubs plus Structured Streaming for high-volume streams.",
+      "Keep messages small and pass a secure ADLS/Delta reference for large datasets. Use Entra ID or managed identity, Key Vault, Private Link where required, idempotent consumers, dead-letter handling and end-to-end correlation IDs.",
+      "Choose the service by interaction style: synchronous request → API Management; workflow → Logic Apps; durable command → Service Bus; notification → Event Grid; telemetry stream → Event Hubs; bulk data movement → Data Factory."
+    ], services:["onprem","apim","logicapps","servicebus","eventgrid","eventhub","adf","databricks"], source:"Microsoft Learn Azure Integration Services + Azure Architecture Center"
+  },
   {
     id:"catalog", title:"Data catalog in Azure and Azure Databricks",
     keywords:["data catalog","catalog in databricks","databricks catalog","azure data catalog","unity catalog vs purview","what is catalog","metadata catalog","catalog governance"],
@@ -3370,7 +3474,7 @@ function findComponentConcept(question){
 
 function focusServices(ids){
   restoreTracePositions();
-  document.getElementById('stage').classList.remove('trace-open');
+  document.getElementById('stage').classList.remove('trace-open','drawer-open');
   const idxs=ids.filter(id=>idIndex[id]!==undefined).map(id=>idIndex[id]);
   if(idxs.length>1){arrangePath(idxs);return;}
   focusMode=true; traceOrderedPath=[]; pathNodeSet=new Set(idxs); pathEdgeKeys=new Set();
@@ -3501,6 +3605,7 @@ selectNode=selectNodeDeep;
 
 function openTraceNode(id){
   document.getElementById('arch-view').classList.remove('show');
+  document.getElementById('stage').classList.remove('drawer-open');
   clearFocus();
   selectNodeDeep(id);
 }
@@ -3525,7 +3630,7 @@ function renderPathInDrawer(pathIdxs, question){
     card.onclick=()=>openTraceNode(n.id);track.appendChild(card);
   });
   document.getElementById('arch-layers').innerHTML='';
-  document.getElementById('stage').classList.add('trace-open');
+  document.getElementById('stage').classList.add('trace-open','drawer-open');
   view.classList.add('show');
 }
 
@@ -3555,20 +3660,23 @@ function renderArchitecture(pattern){
     <div class="layer silver"><b>🥈 SILVER — conformed</b><p>Validated, deduplicated, standardized and joined. Apply quality rules and business keys.</p></div>
     <div class="layer gold"><b>🥇 GOLD — business</b><p>Curated facts/dimensions, aggregates and trusted metrics ready for serving and BI.</p></div>
   </div></div>`:'';
-  document.getElementById('stage').classList.add('trace-open');
+  document.getElementById('stage').classList.add('trace-open','drawer-open');
   view.classList.add('show');
 }
 document.getElementById('arch-close').onclick=()=>{
   // Keep the ordered route pinned so closing the drawer reveals the full map.
   document.getElementById('arch-view').classList.remove('show');
+  document.getElementById('stage').classList.remove('drawer-open');
 };
 document.getElementById('trace-details').onclick=()=>{
   closePanel();
   document.getElementById('answer-box').classList.remove('show');
   document.getElementById('arch-view').classList.add('show');
+  document.getElementById('stage').classList.add('drawer-open');
 };
 document.getElementById('trace-clear').onclick=()=>{
   document.getElementById('arch-view').classList.remove('show');
+  document.getElementById('stage').classList.remove('drawer-open');
   clearFocus();
 };
 
